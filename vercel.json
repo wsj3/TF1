@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "devCommand": "npm run dev",
+  "ignoreCommand": "npx turbo-ignore",
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "staging": true,
+      "development": false,
+      "feature/*": false
+    }
+  },
+  "outputDirectory": ".next"
+} 

@@ -9,7 +9,12 @@ node_modules/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.staging
+.env.production
 .env*.local
+
+# Allow example env file
+!.env.example
 
 # Debug logs
 npm-debug.log*

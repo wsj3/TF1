@@ -1,0 +1,17 @@
+{
+  "name": "therapists-friend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "seed": "node prisma/seed.js"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "devDependencies": {
+    "prisma": "^6.4.1"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.4.1"
+  }
+}

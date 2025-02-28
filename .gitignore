@@ -39,4 +39,4 @@ dist/
 node_modules/.prisma/
 
 # Exclude therapists-friend directory (has its own Git repo)
-therapists-friend/ 
+# therapists-friend/ 

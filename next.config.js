@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const path = require('path');
+
 const nextConfig = {
   reactStrictMode: true,
   // Enable image optimization
@@ -15,11 +17,13 @@ const nextConfig = {
     // This can improve serverless function initialization
     serverComponentsExternalPackages: ['@prisma/client'],
   },
-  // Disable webpack processing that requires tailwindcss
-  webpack: (config) => {
+  // Configure webpack to use our mock tailwindcss module
+  webpack: (config, { isServer }) => {
+    // Alias tailwindcss to our mock implementation
+    config.resolve.alias['tailwindcss'] = path.resolve(__dirname, 'src/mocks/tailwindcss.js');
+    
     return config;
   },
-  transpilePackages: ['tailwindcss'],
 }
 
-module.exports = nextConfig 
+module.exports = nextConfig; 

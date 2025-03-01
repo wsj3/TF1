@@ -1,9 +1,9 @@
 {
   "version": 2,
-  "buildCommand": "cd therapists-friend && npm install && npm run build",
-  "installCommand": "cd therapists-friend && npm install",
+  "buildCommand": "npm install && npm run build",
+  "installCommand": "npm install",
   "framework": "nextjs",
-  "devCommand": "cd therapists-friend && npm run dev",
+  "devCommand": "npm run dev",
   "ignoreCommand": null,
   "git": {
     "deploymentEnabled": {
@@ -13,7 +13,7 @@
       "feature/*": false
     }
   },
-  "outputDirectory": "therapists-friend/.next",
+  "outputDirectory": ".next",
   "functions": {
     "api/*.js": {
       "memory": 1024,

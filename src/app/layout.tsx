@@ -24,9 +24,21 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <head>
+        <style jsx global>{`
+          :root {
+            --font-geist-sans: ${geistSans.style.fontFamily};
+            --font-geist-mono: ${geistMono.style.fontFamily};
+          }
+          body {
+            font-family: var(--font-geist-sans);
+          }
+        `}</style>
+      </head>
+      <body style={{
+        WebkitFontSmoothing: 'antialiased',
+        MozOsxFontSmoothing: 'grayscale',
+      }}>
         {children}
       </body>
     </html>

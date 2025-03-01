@@ -23,9 +23,9 @@ Ensure these files are properly configured with the appropriate database connect
 ### Example `.env.production`:
 
 ```
-DATABASE_URL="postgresql://username:password@production-db-host:5432/therapists_friend"
+DATABASE_URL="postgresql://neondb_owner:password@production-db-host/neondb?sslmode=require"
 NODE_ENV="production"
-NEXTAUTH_URL="https://therapists-friend.app"
+NEXTAUTH_URL="https://tf-1.vercel.app"
 NEXTAUTH_SECRET="your-production-secret"
 ```
 
@@ -74,8 +74,33 @@ The application can be deployed using two different methods:
    - Set up branch-specific environment variables for staging/production
 
 3. Set up custom domains:
-   - `staging.therapists-friend.app` for staging
-   - `therapists-friend.app` for production
+   - `staging.tf-1.vercel.app` for staging
+   - `tf-1.vercel.app` for production
+
+### Database Branching with Neon
+
+The application uses Neon PostgreSQL's branching functionality to maintain separate databases for different environments:
+
+1. **Main Branch**: Production database
+   - Connected to the `main` branch deployment in Vercel
+   - Used for live, production data
+
+2. **Staging Branch**: Pre-production testing database
+   - Created as a branch from `main` in Neon console
+   - Connected to the `staging` branch deployment in Vercel
+   - Used for testing before promoting to production
+
+3. **Development Branches**: For individual feature development
+   - Can be created as needed for feature development
+   - Each gets its own connection string
+
+To create a new database branch in Neon:
+1. Go to the Neon console (console.neon.tech)
+2. Navigate to your project > Branches
+3. Click "Create branch"
+4. Name it according to its purpose (e.g., "staging", "feature/user-auth")
+5. Select the parent branch (usually `main`)
+6. Copy the new connection string for use in the appropriate environment
 
 ### Deployment Process
 
@@ -92,14 +117,14 @@ When code is pushed to any of these branches, Vercel automatically deploys:
 
 ### Database Migrations
 
-Before each deployment, ensure database migrations are applied:
+Before each deployment, ensure database migrations are applied to the appropriate database branch:
 
 ```bash
 # For staging
-npx prisma migrate deploy
+npx dotenv -e .env.staging -- prisma migrate deploy
 
 # For production
-NODE_ENV=production npx prisma migrate deploy
+npx dotenv -e .env.production -- prisma migrate deploy
 ```
 
 ## Google Container Deployment (Legacy)

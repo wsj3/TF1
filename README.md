@@ -1,72 +1,75 @@
 # Therapists Friend
 
-A comprehensive practice management application designed to streamline therapist workflows, improve client management, and integrate therapeutic tools.
+A comprehensive platform designed to help therapists manage their practice, including client information, session scheduling, and treatment plans.
 
-## Architecture
+## Features
 
-- **Frontend/Backend**: Next.js 14+ with App Router
-- **Database**: PostgreSQL via Neon (serverless)
+- Client management
+- Session scheduling and tracking
+- Progress notes and treatment plans
+- User authentication and authorization
+- Dashboard with key metrics
+
+## Tech Stack
+
+- **Frontend**: Next.js 14, React 18, TailwindCSS
+- **Backend**: Next.js API routes
+- **Database**: PostgreSQL (with Neon for production)
 - **ORM**: Prisma
+- **Authentication**: NextAuth.js
 - **Deployment**: Vercel
-- **Authentication**: Auth.js
 
-## Development Setup
+## Getting Started
 
 ### Prerequisites
-- Node.js 18+
-- Git
-- PostgreSQL (or Docker for local development)
 
-### Local Development
-1. Clone the repository
+- Node.js 18+ 
+- PostgreSQL (for local development)
+- Git
+
+### Installation
+
+1. Clone the repository:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/your-username/therapists-friend.git
    cd therapists-friend
    ```
 
-2. Install dependencies
+2. Install dependencies:
    ```bash
    npm install
    ```
 
-3. Set up environment variables
+3. Set up environment variables:
+   - Create a `.env.local` file based on the provided `.env.local` template
+   - Update the database connection string to match your local PostgreSQL setup
+
+4. Set up the database:
    ```bash
-   cp .env.example .env.local
-   # Update .env.local with your database connection string
+   npx prisma migrate dev --name init
+   npm run seed
    ```
 
-4. Run database migrations
-   ```bash
-   npx prisma migrate dev
-   ```
-
-5. Start the development server
+5. Start the development server:
    ```bash
    npm run dev
    ```
 
-6. Open [http://localhost:3000](http://localhost:3000) in your browser
+6. Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
 
 ## Deployment
 
-### Environments
+The application is designed to be deployed on Vercel with a Neon PostgreSQL database. Refer to the `deployment.md` file for detailed deployment instructions.
 
-| Environment | Branch | URL |
-|-------------|--------|-----|
-| Development | development | Local |
-| Staging | staging | staging.therapists-friend.app |
-| Production | main | therapists-friend.app |
+### Environment Variables for Production
 
-### Deployment Process
+Make sure to set the following environment variables in your Vercel project:
 
-The application is deployed through Vercel's continuous deployment:
-1. Create feature branches from development
-2. Merge to development for integration testing
-3. Merge to staging for pre-production testing
-4. Merge to main for production deployment
-
-See the [Deployment Guide](deployment.md) for more details.
+- `DATABASE_URL`: Your Neon PostgreSQL connection string
+- `NEXTAUTH_URL`: Your production URL (e.g., https://therapists-friend.vercel.app)
+- `NEXTAUTH_SECRET`: A secure random string for session encryption
+- `NODE_ENV`: Set to "production"
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE). 
+This project is licensed under the MIT License. 

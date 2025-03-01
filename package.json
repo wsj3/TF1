@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && prisma migrate deploy && next build",
+    "build": "next build",
+    "postbuild": "prisma generate && prisma migrate deploy",
     "start": "next start",
     "lint": "next lint",
     "seed": "node prisma/seed.js",
@@ -12,6 +13,9 @@
   },
   "prisma": {
     "seed": "node prisma/seed.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.14",

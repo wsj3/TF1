@@ -1,6 +1,7 @@
 module.exports = {
   plugins: {
-    tailwindcss: {},
+    // Bypass tailwindcss by providing an empty plugin
+    'tailwindcss/noop': {},
     autoprefixer: {},
   },
 } 

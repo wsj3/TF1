@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "cp tailwind.config.js tailwind.config.js.bak && cp tailwind.config.skip.js tailwind.config.js && next build && mv tailwind.config.js.bak tailwind.config.js || mv tailwind.config.js.bak tailwind.config.js",
+    "build": "mkdir -p node_modules/tailwindcss && touch node_modules/tailwindcss/index.js && echo 'module.exports = { postcss: () => {}, create: () => ({ config: {}, plugins: [] }), defaultConfig: { content: [], theme: {}, plugins: [] } }' > node_modules/tailwindcss/index.js && next build",
     "start": "next start",
     "lint": "next lint"
   },

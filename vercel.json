@@ -25,6 +25,10 @@
     }
   },
   "routes": [
-    { "src": "/minimal", "dest": "/minimal.js" }
+    { "src": "/minimal", "dest": "/minimal.js" },
+    { "src": "/api/env-check", "dest": "/api/env-check" },
+    { "src": "/api/bare", "dest": "/api/bare" },
+    { "src": "/api/db-test", "dest": "/api/db-test" },
+    { "src": "/api/schema-info", "dest": "/api/schema-info" }
   ]
 } 

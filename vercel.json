@@ -1,9 +1,9 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
-  "installCommand": "npm install",
+  "buildCommand": "cd therapists-friend && npm install && npm run build",
+  "installCommand": "cd therapists-friend && npm install",
   "framework": "nextjs",
-  "devCommand": "npm run dev",
+  "devCommand": "cd therapists-friend && npm run dev",
   "ignoreCommand": null,
   "git": {
     "deploymentEnabled": {
@@ -13,7 +13,7 @@
       "feature/*": false
     }
   },
-  "outputDirectory": ".next",
+  "outputDirectory": "therapists-friend/.next",
   "functions": {
     "api/*.js": {
       "memory": 1024,
@@ -26,6 +26,7 @@
   },
   "routes": [
     { "src": "/minimal", "dest": "/minimal.js" },
+    { "src": "/app-minimal", "dest": "/minimal" },
     { "src": "/api/env-check", "dest": "/api/env-check" },
     { "src": "/api/bare", "dest": "/api/bare" },
     { "src": "/api/db-test", "dest": "/api/db-test" },

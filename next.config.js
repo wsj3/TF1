@@ -10,6 +10,11 @@ const nextConfig = {
     APP_NAME: 'Therapists Friend',
     APP_VERSION: '0.1.0',
   },
+  // Optimize for serverless environments
+  experimental: {
+    // This can improve serverless function initialization
+    serverComponentsExternalPackages: ['@prisma/client'],
+  },
 }
 
 module.exports = nextConfig 

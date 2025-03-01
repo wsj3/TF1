@@ -197,5 +197,6 @@ If issues are encountered after deployment:
 |------|---------|---------|-------------|
 | 2024-02-28 | 0.1.0 | Initial Prisma ORM setup | [Your Name] |
 | 2024-02-28 | 0.2.0 | Added Vercel deployment process | [Your Name] |
+| 2024-11-25 | 0.3.0 | Fix authentication flow and page rendering issues. Add login functionality, profile page, and custom document | [Your Name] |
 
 **Note:** Update this document whenever changes are made to the deployment process. 

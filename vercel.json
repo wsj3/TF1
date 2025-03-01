@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "npm install autoprefixer@10.4.16 postcss@8.4.31 babel-plugin-module-resolver@5.0.0 && npm run build",
+  "buildCommand": "npm install && npm run build",
   "installCommand": "npm install",
   "framework": "nextjs",
   "devCommand": "npm run dev",

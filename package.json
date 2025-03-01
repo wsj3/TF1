@@ -5,33 +5,32 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "postbuild": "prisma generate && prisma migrate deploy",
     "start": "next start",
-    "lint": "next lint",
-    "seed": "node prisma/seed.js",
-    "postinstall": "prisma generate"
-  },
-  "prisma": {
-    "seed": "node prisma/seed.js"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  },
-  "devDependencies": {
-    "autoprefixer": "^10.4.14",
-    "eslint": "^8.45.0",
-    "eslint-config-next": "^13.4.10",
-    "postcss": "^8.4.26",
-    "prisma": "^6.4.1",
-    "tailwindcss": "^3.3.3"
+    "lint": "next lint"
   },
   "dependencies": {
+    "@hookform/resolvers": "^4.1.2",
     "@prisma/client": "^6.4.1",
-    "bcryptjs": "^2.4.3",
-    "next": "^14.0.0",
-    "next-auth": "^4.22.3",
-    "pg": "^8.13.3",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "@tailwindcss/postcss": "^4",
+    "bcrypt": "^5.1.1",
+    "date-fns": "^4.1.0",
+    "next": "15.2.0",
+    "next-auth": "^4.24.11",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-hook-form": "^7.54.2",
+    "tailwindcss": "^4",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@types/bcrypt": "^5.0.2",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.2.0",
+    "prisma": "^6.4.1",
+    "typescript": "^5"
   }
 }

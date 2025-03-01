@@ -1,3 +1,4 @@
+// API Status endpoint - added comment to trigger Vercel deployment
 export default function handler(req, res) {
   res.status(200).json({
     status: 'ok',

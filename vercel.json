@@ -1,10 +1,15 @@
 {
   "version": 2,
-  "buildCommand": "rm -rf node_modules/.cache && npm install tailwindcss@3.3.3 postcss@8.4.31 autoprefixer@10.4.16 --force && npm run build",
-  "installCommand": "npm install",
+  "buildCommand": "npm ci && npm run build",
+  "installCommand": "npm ci",
   "framework": "nextjs",
   "devCommand": "npm run dev",
   "ignoreCommand": null,
+  "build": {
+    "env": {
+      "CACHE_KEY": "reset-20241002-1"
+    }
+  },
   "git": {
     "deploymentEnabled": {
       "main": true,

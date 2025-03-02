@@ -3,6 +3,7 @@ const path = require('path');
 
 const nextConfig = {
   reactStrictMode: true,
+  distDir: '.next',
   swcMinify: true,
   // Ensure PostCSS processing is enabled
   postcss: true,
@@ -14,11 +15,14 @@ const nextConfig = {
   env: {
     APP_NAME: 'Therapists Friend',
     APP_VERSION: '0.1.0',
+    BUILD_VERSION: '14.0.4-fixed',
   },
   // Optimize for serverless environments
   experimental: {
     // This can improve serverless function initialization
     serverComponentsExternalPackages: ['@prisma/client'],
+    // Ensure we're not using any experimental features
+    appDir: false,
   },
   // Configure webpack to use our mock tailwindcss module
   webpack: (config, { isServer }) => {
@@ -27,6 +31,7 @@ const nextConfig = {
     
     return config;
   },
+  poweredByHeader: false,
 }
 
 module.exports = nextConfig; 

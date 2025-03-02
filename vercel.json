@@ -1,13 +1,14 @@
 {
   "version": 2,
-  "buildCommand": "npm ci && npm run build",
+  "buildCommand": "rm -rf node_modules/.cache .next && npm ci && npm run build",
   "installCommand": "npm ci",
   "framework": "nextjs",
   "devCommand": "npm run dev",
   "ignoreCommand": null,
   "build": {
     "env": {
-      "CACHE_KEY": "reset-20241002-1"
+      "CACHE_KEY": "reset-20241002-2",
+      "NEXT_TELEMETRY_DISABLED": "1"
     }
   },
   "git": {

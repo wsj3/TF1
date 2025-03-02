@@ -1,7 +1,6 @@
 {
   "name": "therapists-friend",
   "version": "0.1.0",
-  // Forcing rebuild with Tailwind configuration
   "private": true,
   "scripts": {
     "dev": "next dev",

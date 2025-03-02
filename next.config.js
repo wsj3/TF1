@@ -3,6 +3,9 @@ const path = require('path');
 
 const nextConfig = {
   reactStrictMode: true,
+  swcMinify: true,
+  // Ensure PostCSS processing is enabled
+  postcss: true,
   // Enable image optimization
   images: {
     domains: ['localhost'],

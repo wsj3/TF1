@@ -1,0 +1,35 @@
+{
+  "version": 2,
+  "buildCommand": "npm install && npm run build",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "devCommand": "npm run dev",
+  "ignoreCommand": null,
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "staging": true,
+      "development": false,
+      "feature/*": false
+    }
+  },
+  "outputDirectory": ".next",
+  "functions": {
+    "api/*.js": {
+      "memory": 1024,
+      "maxDuration": 10
+    },
+    "api/**/*.js": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  },
+  "routes": [
+    { "src": "/minimal", "dest": "/minimal.js" },
+    { "src": "/app-minimal", "dest": "/minimal" },
+    { "src": "/api/env-check", "dest": "/api/env-check" },
+    { "src": "/api/bare", "dest": "/api/bare" },
+    { "src": "/api/db-test", "dest": "/api/db-test" },
+    { "src": "/api/schema-info", "dest": "/api/schema-info" }
+  ]
+} 

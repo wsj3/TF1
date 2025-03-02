@@ -1,13 +1,13 @@
 {
   "version": 2,
-  "buildCommand": "cd therapists-friend && npm ci && npm run build",
-  "installCommand": "cd therapists-friend && npm ci",
+  "buildCommand": "npm ci && npm run build",
+  "installCommand": "npm ci",
   "framework": "nextjs",
   "devCommand": "npm run dev",
   "ignoreCommand": null,
   "build": {
     "env": {
-      "CACHE_KEY": "reset-20241002-2",
+      "CACHE_KEY": "reset-20241002-3",
       "NEXT_TELEMETRY_DISABLED": "1"
     }
   },
@@ -19,7 +19,7 @@
       "feature/*": false
     }
   },
-  "outputDirectory": "therapists-friend/.next",
+  "outputDirectory": ".next",
   "functions": {
     "api/*.js": {
       "memory": 1024,

@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "buildCommand": "rm -rf node_modules/.cache .next && npm ci && npm run build",
-  "installCommand": "npm ci",
+  "buildCommand": "cd therapists-friend && npm ci && npm run build",
+  "installCommand": "cd therapists-friend && npm ci",
   "framework": "nextjs",
   "devCommand": "npm run dev",
   "ignoreCommand": null,
@@ -19,7 +19,7 @@
       "feature/*": false
     }
   },
-  "outputDirectory": ".next",
+  "outputDirectory": "therapists-friend/.next",
   "functions": {
     "api/*.js": {
       "memory": 1024,

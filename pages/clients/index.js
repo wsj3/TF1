@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import Layout from '../../components/Layout';
+import { withSession } from '../../components/SessionWrapper';
 
-export default function Clients() {
+function Clients() {
   // Dummy data for demonstration
   const [clients] = useState([
     { id: 1, name: 'Jane Smith', email: 'jane@example.com', phone: '555-1234', status: 'Active' },
@@ -27,17 +29,13 @@ export default function Clients() {
   });
 
   return (
-    <>
-      <Head>
-        <title>Clients | Therapists Friend</title>
-      </Head>
-      
-      <div className="py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <Layout title="Clients | Therapist's Friend">
+      <div className="p-6 bg-gray-900 min-h-screen text-white">
+        <div className="max-w-7xl mx-auto">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-semibold text-gray-900">Clients</h1>
+            <h1 className="text-2xl font-semibold text-white">Clients</h1>
             <Link href="/clients/new" legacyBehavior>
-              <a className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+              <a className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                 Add Client
               </a>
             </Link>
@@ -57,7 +55,7 @@ export default function Clients() {
                 <input
                   id="search"
                   name="search"
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-700 rounded-md leading-5 bg-gray-800 text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                   placeholder="Search clients"
                   type="search"
                   value={searchTerm}
@@ -70,7 +68,7 @@ export default function Clients() {
               <select
                 id="status"
                 name="status"
-                className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                className="block w-full pl-3 pr-10 py-2 text-base border-gray-700 bg-gray-800 text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
@@ -82,22 +80,22 @@ export default function Clients() {
           </div>
           
           <div className="mt-8 flex flex-col">
-            <div className="-my-2 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
-              <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
-                <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
-                  <table className="min-w-full divide-y divide-gray-300">
-                    <thead className="bg-gray-50">
+            <div className="-my-2 overflow-x-auto">
+              <div className="inline-block min-w-full py-2 align-middle">
+                <div className="overflow-hidden shadow ring-1 ring-gray-700 rounded-lg">
+                  <table className="min-w-full divide-y divide-gray-700">
+                    <thead className="bg-gray-800">
                       <tr>
-                        <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
+                        <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-200 sm:pl-6">
                           Name
                         </th>
-                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-200">
                           Email
                         </th>
-                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-200">
                           Phone
                         </th>
-                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-200">
                           Status
                         </th>
                         <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
@@ -105,27 +103,27 @@ export default function Clients() {
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200 bg-white">
+                    <tbody className="divide-y divide-gray-700 bg-gray-800">
                       {filteredClients.map((client) => (
                         <tr key={client.id}>
-                          <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-6">
+                          <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-white sm:pl-6">
                             {client.name}
                           </td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{client.email}</td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{client.phone}</td>
-                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-300">{client.email}</td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-300">{client.phone}</td>
+                          <td className="whitespace-nowrap px-3 py-4 text-sm">
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              client.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                              client.status === 'Active' ? 'bg-green-900 text-green-200' : 'bg-gray-700 text-gray-200'
                             }`}>
                               {client.status}
                             </span>
                           </td>
                           <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                             <Link href={`/clients/${client.id}`} legacyBehavior>
-                              <a className="text-indigo-600 hover:text-indigo-900 mr-4">View</a>
+                              <a className="text-blue-400 hover:text-blue-300 mr-4">View</a>
                             </Link>
                             <Link href={`/clients/${client.id}/edit`} legacyBehavior>
-                              <a className="text-indigo-600 hover:text-indigo-900">Edit</a>
+                              <a className="text-blue-400 hover:text-blue-300">Edit</a>
                             </Link>
                           </td>
                         </tr>
@@ -138,6 +136,27 @@ export default function Clients() {
           </div>
         </div>
       </div>
-    </>
+    </Layout>
   );
+}
+
+export default withSession(Clients, { requireAuth: true });
+
+// Server-side authentication check
+export async function getServerSideProps(context) {
+  const { getSession } = await import('next-auth/react');
+  const session = await getSession(context);
+
+  if (!session) {
+    return {
+      redirect: {
+        destination: '/auth/signin',
+        permanent: false,
+      },
+    };
+  }
+
+  return {
+    props: { session }
+  };
 } 

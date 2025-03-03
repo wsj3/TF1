@@ -10,11 +10,25 @@ export default function SignIn() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [origin, setOrigin] = useState('');
+  const [debugInfo, setDebugInfo] = useState(null);
 
   // Get the current origin on component mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      setOrigin(window.location.origin);
+      const currentOrigin = window.location.origin;
+      setOrigin(currentOrigin);
+      
+      // Get debug info
+      const debugData = {
+        origin: currentOrigin,
+        pathname: window.location.pathname,
+        userAgent: window.navigator.userAgent,
+        href: window.location.href,
+        host: window.location.host
+      };
+      setDebugInfo(debugData);
+      
+      console.log('SignIn Page Environment:', debugData);
     }
   }, []);
 
@@ -30,20 +44,23 @@ export default function SignIn() {
       // Always use the current origin for the callback URL
       const callbackUrl = `${currentOrigin}/dashboard`;
       console.log('Signing in with callback URL:', callbackUrl);
+      console.log('Credentials:', { email, password: '********' });
       
       const result = await signIn('credentials', {
-        redirect: true,
+        redirect: false, // Change to false to handle manually
         callbackUrl,
         email,
         password
       });
       
-      // Note: with redirect:true, the code below will not execute
-      // as the browser will be redirected automatically.
-      // This is just a fallback.
+      console.log('Sign in result:', result);
+      
       if (result?.error) {
         setError(result.error);
         setIsLoading(false);
+      } else if (result?.url) {
+        console.log('Successful login, redirecting to:', result.url);
+        window.location.href = result.url;
       }
     } catch (err) {
       console.error('Sign in error:', err);
@@ -131,6 +148,25 @@ export default function SignIn() {
           <p className="text-xs text-gray-500 mt-1">
             Alternative: demo@example.com / password
           </p>
+          
+          {/* Add a button to manually go to dashboard for testing */}
+          <div className="mt-4">
+            <Link href="/dashboard">
+              <button className="text-xs text-blue-500 underline">
+                Directly Go to Dashboard (Testing)
+              </button>
+            </Link>
+          </div>
+          
+          {/* Debug information (collapsible) */}
+          {debugInfo && (
+            <div className="mt-4 text-left text-xs text-gray-500 border border-gray-800 rounded p-2">
+              <details>
+                <summary className="cursor-pointer font-medium">Debug Information</summary>
+                <pre className="mt-2 whitespace-pre-wrap">{JSON.stringify(debugInfo, null, 2)}</pre>
+              </details>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -138,18 +174,28 @@ export default function SignIn() {
 }
 
 export async function getServerSideProps(context) {
-  const session = await getSession(context);
-  
-  if (session) {
+  try {
+    console.log('getServerSideProps for signin page');
+    const session = await getSession(context);
+    console.log('Session status:', session ? 'authenticated' : 'unauthenticated');
+    
+    if (session) {
+      console.log('User already authenticated, redirecting to dashboard');
+      return {
+        redirect: {
+          destination: '/dashboard',
+          permanent: false,
+        },
+      };
+    }
+    
     return {
-      redirect: {
-        destination: '/dashboard',
-        permanent: false,
-      },
+      props: {},
+    };
+  } catch (error) {
+    console.error('Error in getServerSideProps:', error);
+    return {
+      props: {},
     };
   }
-  
-  return {
-    props: {},
-  };
 } 

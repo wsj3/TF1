@@ -4,6 +4,9 @@ import Sidebar from './Sidebar';
 import TopNav from './TopNav';
 
 export default function Layout({ children, title = 'Therapist\'s Friend' }) {
+  const { data: session } = useSession();
+  const isAuthenticated = !!session;
+
   return (
     <div className="min-h-screen bg-gray-900">
       <Head>
@@ -12,14 +15,18 @@ export default function Layout({ children, title = 'Therapist\'s Friend' }) {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      {/* Sidebar Navigation */}
-      <Sidebar />
-      
-      {/* Top Navigation */}
-      <TopNav />
+      {isAuthenticated && (
+        <>
+          {/* Sidebar Navigation */}
+          <Sidebar />
+          
+          {/* Top Navigation */}
+          <TopNav />
+        </>
+      )}
 
       {/* Main Content */}
-      <main className="ml-64 pt-16 min-h-screen bg-gray-900">
+      <main className={isAuthenticated ? "ml-64 pt-16 min-h-screen bg-gray-900" : "min-h-screen bg-gray-900"}>
         {children}
       </main>
     </div>

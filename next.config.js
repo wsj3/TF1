@@ -23,7 +23,10 @@ const nextConfig = {
   // Configure webpack to use our mock tailwindcss module
   webpack: (config, { isServer }) => {
     // Alias tailwindcss to our mock implementation
-    config.resolve.alias['tailwindcss'] = path.resolve(__dirname, 'src/mocks/tailwindcss.js');
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'tailwindcss': path.resolve(__dirname, 'src/mocks/tailwindcss.js')
+    };
     
     return config;
   },

@@ -25,10 +25,10 @@ export function withSession(Component, { requireAuth = false } = {}) {
     useEffect(() => {
       if (requireAuth && status === 'unauthenticated') {
         console.log('Auth required, but user not authenticated. Redirecting to signin');
-        // Use replace instead of push to avoid a history entry
-        router.replace('/auth/signin');
+        // Use window.location for more reliable redirects in development
+        window.location.href = '/auth/signin';
       }
-    }, [requireAuth, status, router]);
+    }, [requireAuth, status]);
     
     // Show loading state while authentication state is being determined
     if (requireAuth && status === 'loading') {

@@ -15,9 +15,10 @@ export default function SignIn() {
   useEffect(() => {
     if (status === 'authenticated' && session) {
       console.log('User is authenticated, redirecting to dashboard');
-      router.replace('/dashboard');
+      // Use window.location for a full page reload to ensure redirect works
+      window.location.href = '/dashboard';
     }
-  }, [session, status, router]);
+  }, [session, status]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -35,9 +36,9 @@ export default function SignIn() {
         setError('Invalid email or password');
         setIsLoading(false);
       } else {
-        // Successful login
+        // Successful login - use window.location for reliable redirect
         console.log('Sign in successful, redirecting...');
-        router.replace('/dashboard');
+        window.location.href = '/dashboard';
       }
     } catch (error) {
       console.error('Sign in error:', error);

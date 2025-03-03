@@ -12,9 +12,10 @@ function Dashboard() {
     // If not authenticated, redirect to sign in
     if (status === 'unauthenticated') {
       console.log('User not authenticated, redirecting to signin');
-      router.replace('/auth/signin');
+      // Use window.location for more reliable redirects in development
+      window.location.href = '/auth/signin';
     }
-  }, [status, router]);
+  }, [status]);
 
   // Show loading while checking authentication
   if (status === 'loading') {

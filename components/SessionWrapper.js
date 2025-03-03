@@ -1,54 +1,64 @@
-import { useSession, signIn } from 'next-auth/react';
-import { useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
+import { useEffect } from 'react';
 
-export function SessionWrapper({ children, fallback = null }) {
-  // Only try to access session on client side
-  if (typeof window === 'undefined') {
-    return fallback;
-  }
-
-  const { data: session, status } = useSession();
+export function withSession(Component, options = {}) {
+  const { requireAuth = false } = options;
   
-  if (status === 'loading') {
-    return fallback;
-  }
-
-  return children(session, status);
-}
-
-export function withSession(Component, { requireAuth = false } = {}) {
-  return function WrappedComponent(props) {
+  // This is now just a client-side fallback - we'll use getServerSideProps for the main protection
+  function WrappedComponent(props) {
     const { data: session, status } = useSession();
     const router = useRouter();
     
     useEffect(() => {
+      // Only run this on the client side
+      if (typeof window === 'undefined') return;
+      
       if (requireAuth && status === 'unauthenticated') {
-        console.log('Auth required, but user not authenticated. Redirecting to signin');
-        // Use window.location for more reliable redirects in development
-        window.location.href = '/auth/signin';
+        router.replace('/auth/signin');
       }
-    }, [requireAuth, status]);
+    }, [requireAuth, router, status]);
     
-    // Show loading state while authentication state is being determined
-    if (requireAuth && status === 'loading') {
-      return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-900">
-          <div className="text-white">Loading...</div>
-        </div>
-      );
+    if (requireAuth) {
+      if (status === 'loading') {
+        return (
+          <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+            <div className="text-white">Loading...</div>
+          </div>
+        );
+      }
+      
+      if (status === 'unauthenticated') {
+        return (
+          <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+            <div className="text-white">Redirecting to sign in...</div>
+          </div>
+        );
+      }
     }
     
-    // Handle non-authenticated users for protected pages
-    if (requireAuth && status === 'unauthenticated') {
-      return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-900">
-          <div className="text-white">Redirecting to sign in...</div>
-        </div>
-      );
-    }
-    
-    // Render the component with session data
-    return <Component {...props} session={session} />;
-  };
+    return <Component {...props} />;
+  }
+  
+  // Copy getInitialProps or getServerSideProps so they're also executed
+  if (Component.getInitialProps) {
+    WrappedComponent.getInitialProps = Component.getInitialProps;
+  }
+  
+  return WrappedComponent;
+}
+
+// Use this in _app.js to wrap the entire application
+export function SessionProvider({ children }) {
+  const { status } = useSession();
+  
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-white">Loading...</div>
+      </div>
+    );
+  }
+  
+  return <>{children}</>;
 } 

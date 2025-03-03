@@ -5,8 +5,6 @@ const nextConfig = {
   reactStrictMode: true,
   distDir: '.next',
   swcMinify: true,
-  // Ensure PostCSS processing is enabled
-  postcss: true,
   // Enable image optimization
   images: {
     domains: ['localhost'],
@@ -20,9 +18,7 @@ const nextConfig = {
   // Optimize for serverless environments
   experimental: {
     // This can improve serverless function initialization
-    serverComponentsExternalPackages: ['@prisma/client'],
-    // Ensure we're not using any experimental features
-    appDir: false,
+    serverComponentsExternalPackages: ['@prisma/client']
   },
   // Configure webpack to use our mock tailwindcss module
   webpack: (config, { isServer }) => {

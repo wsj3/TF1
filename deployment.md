@@ -1,203 +1,170 @@
 # Deployment Guide for Therapists Friend
 
-This document outlines the deployment process for the Therapists Friend application, including both local development and production deployment procedures.
+## Environment Setup
 
-## Prerequisites
+### Local Development
+1. Clone the repository
+2. Copy `.env.local.example` to `.env.local`
+3. Configure local environment variables
+4. Run `npm install` to install dependencies
+5. Run `npm run dev` to start the development server
 
-- Node.js 18+ installed
-- PostgreSQL database (local for development, Neon PostgreSQL for production)
-- Git
-- PowerShell 7+ (for Windows deployments)
-- Vercel account (for frontend deployment)
-
-## Environment Configuration
-
-The application uses separate environment files for different environments:
-
-- `.env.local` - For local development
-- `.env.staging` - For staging deployment
-- `.env.production` - For production deployment
-
-Ensure these files are properly configured with the appropriate database connection strings and other environment variables.
-
-### Example `.env.production`:
-
-```
-DATABASE_URL="postgresql://neondb_owner:password@production-db-host/neondb?sslmode=require"
-NODE_ENV="production"
-NEXTAUTH_URL="https://tf-1.vercel.app"
-NEXTAUTH_SECRET="your-production-secret"
-```
-
-## Local Development Setup
-
-1. Clone the repository:
+### Staging Environment
+1. Copy `.env.staging.local.example` to `.env.staging.local`
+2. Configure staging environment variables
+3. Deploy to staging using Vercel:
    ```bash
-   git clone <repository-url>
-   cd therapists-friend
+   vercel deploy
    ```
 
-2. Install dependencies:
+### Production Environment
+1. Copy `.env.production.example` to `.env.production`
+2. Configure production environment variables
+3. Deploy to production using Vercel:
    ```bash
-   npm install
+   vercel deploy --prod
    ```
 
-3. Set up the local database:
+## Database Setup
+
+### Local Database
+1. Install PostgreSQL locally
+2. Create a new database named `therapists_friend_dev`
+3. Update `.env.local` with local database connection string
+4. Run migrations:
    ```bash
    npx prisma migrate dev
-   npm run seed
    ```
 
-4. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
-## Deployment Options
-
-The application can be deployed using two different methods:
-
-1. **Vercel Deployment** (Recommended for frontend)
-2. **Google Container Deployment** (Legacy method)
-
-## Vercel Deployment
-
-### Initial Setup
-
-1. Connect your GitHub repository to Vercel:
-   - Go to [Vercel](https://vercel.com/new)
-   - Import your repository
-   - Configure the project settings
-
-2. Configure environment variables in Vercel dashboard:
-   - Add all required environment variables from your `.env.production` file
-   - Set up branch-specific environment variables for staging/production
-
-3. Set up custom domains:
-   - `staging.tf-1.vercel.app` for staging
-   - `tf-1.vercel.app` for production
-
-### Database Branching with Neon
-
-The application uses Neon PostgreSQL's branching functionality to maintain separate databases for different environments:
-
-1. **Main Branch**: Production database
-   - Connected to the `main` branch deployment in Vercel
-   - Used for live, production data
-
-2. **Staging Branch**: Pre-production testing database
-   - Created as a branch from `main` in Neon console
-   - Connected to the `staging` branch deployment in Vercel
-   - Used for testing before promoting to production
-
-3. **Development Branches**: For individual feature development
-   - Can be created as needed for feature development
-   - Each gets its own connection string
-
-To create a new database branch in Neon:
-1. Go to the Neon console (console.neon.tech)
-2. Navigate to your project > Branches
-3. Click "Create branch"
-4. Name it according to its purpose (e.g., "staging", "feature/user-auth")
-5. Select the parent branch (usually `main`)
-6. Copy the new connection string for use in the appropriate environment
-
-### Deployment Process
-
-The application follows a GitOps approach using Vercel's continuous deployment:
-
-1. **Development Branch**: Local development and integration
-2. **Staging Branch**: Pre-production testing
-3. **Main Branch**: Production deployment
-
-When code is pushed to any of these branches, Vercel automatically deploys:
-- Feature branches get preview deployments
-- Staging branch deploys to staging environment
-- Main branch deploys to production environment
-
-### Database Migrations
-
-Before each deployment, ensure database migrations are applied to the appropriate database branch:
-
-```bash
-# For staging
-npx dotenv -e .env.staging -- prisma migrate deploy
-
-# For production
-npx dotenv -e .env.production -- prisma migrate deploy
-```
-
-## Google Container Deployment (Legacy)
-
-The application can still be deployed to a Google production container. To deploy to production, follow these steps:
-
-1. Ensure all changes are committed and pushed to the main branch
-2. Run the deployment script from the project root:
-   ```powershell
-   ./deploy.ps1
-   ```
-
-The deployment script will handle:
-- Building the application
-- Running tests
-- Creating a backup of the current production database
-- Deploying to the Google production container
-- Applying database migrations
-
-### Manual Deployment (if needed)
-
-If you need to deploy manually without using the script:
-
-1. Build the application:
-   ```bash
-   npm run build
-   ```
-
-2. Apply database migrations:
+### Staging Database
+1. Create a new database in Neon
+2. Update `.env.staging.local` with staging database connection string
+3. Run migrations:
    ```bash
    npx prisma migrate deploy
    ```
 
-3. Deploy to the Google production container (refer to Google Cloud documentation for specific steps)
+### Production Database
+1. Create a new database in Neon
+2. Update `.env.production` with production database connection string
+3. Run migrations:
+   ```bash
+   npx prisma migrate deploy
+   ```
 
-## Backup Procedure
+## Deployment Protection Setup
 
-Before each deployment, the database is backed up automatically by the deployment script. To manually create a backup, run:
+### GitHub Branch Protection
+1. Go to GitHub repository settings
+2. Navigate to Branches > Branch protection rules
+3. Add a rule for the `main` branch:
+   - Enable "Require pull request reviews before merging"
+   - Set required number of approvals
+   - Enable "Require status checks to pass"
+   - Enable "Include administrators"
 
-```powershell
-./backup.ps1
+### Vercel Deployment Protection
+1. Go to Project Settings in Vercel dashboard
+2. Navigate to "Deployment Protection"
+3. Enable "Preview Deployment Protection":
+   - This protects staging/preview deployments
+   - Allows for secure testing before production
+
+## Deployment Process
+
+1. **Development Flow**:
+   - Feature development on feature branches
+   - Feature branches merge to `staging`
+   - Automatic deployment to staging environment for testing
+
+2. **Staging to Production Process**:
+   a. Complete testing on staging environment
+   b. Create a pull request from `staging` to `main`
+   c. Required approvals:
+      - Code review approval
+      - QA sign-off
+      - Product owner approval
+   d. After approvals, merge PR to main
+
+3. **Production Deployment**:
+   - Go to Vercel dashboard
+   - Navigate to the successful main branch deployment
+   - Click "Promote to Production"
+   - Verify the deployment details
+   - Confirm the promotion
+
+4. **Post-deployment Verification**:
+   - Access the production URL
+   - Verify critical functionality
+   - Monitor error logs
+   - Confirm database migrations
+
+## Database Migrations
+
+### Local Development
+```bash
+npx prisma migrate dev
 ```
 
-Backups are stored in the `backups` directory. See `backup_readme.md` for more details on the backup process.
+### Staging/Production
+```bash
+npx prisma migrate deploy
+```
 
-## Deployment Verification
-
-After deployment, verify the application is working correctly by:
-
-1. Accessing the application URL
-2. Testing critical features and workflows
-3. Checking database migrations have been applied successfully
-4. Monitoring logs for any errors or warnings
-
-## Rollback Procedure
-
-If issues are encountered after deployment:
-
-1. Identify the issue through logs and monitoring
-2. Apply fixes if possible and redeploy
-3. If necessary, restore from the most recent backup:
-   ```powershell
-   ./backup.ps1 restore --backup-file <filename>
+### Creating a New Migration
+1. Make changes to `prisma/schema.prisma`
+2. Run migration:
+   ```bash
+   npx prisma migrate dev --name <migration-name>
    ```
-4. For Vercel deployments, you can also roll back to a previous deployment from the Vercel dashboard
+3. Commit the migration files
 
-## Update History
+## Environment Variables
 
-| Date | Version | Changes | Deployed By |
-|------|---------|---------|-------------|
-| 2024-02-28 | 0.1.0 | Initial Prisma ORM setup | [Your Name] |
-| 2024-02-28 | 0.2.0 | Added Vercel deployment process | [Your Name] |
-| 2024-11-25 | 0.3.0 | Fix authentication flow and page rendering issues. Add login functionality, profile page, and custom document | [Your Name] |
+### Required Variables
+- `DATABASE_URL`: Database connection string
+- `NEXTAUTH_SECRET`: JWT encryption key
+- `NEXTAUTH_URL`: Full URL of the deployed application
+
+### Optional Variables
+- `NODE_ENV`: Environment (development/staging/production)
+- `PORT`: Server port (default: 3000)
+
+## Troubleshooting
+
+### Common Issues
+1. Database Connection
+   - Verify connection string format
+   - Check database credentials
+   - Ensure database is running
+
+2. Migration Errors
+   - Check for conflicting migrations
+   - Verify database schema
+   - Review migration logs
+
+3. Deployment Failures
+   - Check build logs
+   - Verify environment variables
+   - Review Vercel deployment status
+
+### Backup and Recovery
+1. Create database backup:
+   ```powershell
+   ./backup.ps1
+   ```
+
+2. Restore from backup:
+   ```powershell
+   ./backup.ps1 restore --backup-file <latest-backup>
+   ```
+
+## Notes
+- Keep environment variables secure
+- Regularly update dependencies
+- Monitor deployment logs
+- Test thoroughly in staging before production
+- Follow the GitOps workflow for deployments
 
 **Note:** Update this document whenever changes are made to the deployment process.
 

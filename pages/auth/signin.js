@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { signIn } from 'next-auth/react';
+import { useState, useEffect } from 'react';
+import { signIn, useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 
@@ -7,11 +7,22 @@ export default function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const { data: session, status } = useSession();
+
+  // Redirect to dashboard if already authenticated
+  useEffect(() => {
+    if (status === 'authenticated' && session) {
+      console.log('User is authenticated, redirecting to dashboard');
+      router.replace('/dashboard');
+    }
+  }, [session, status, router]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
 
     try {
       const result = await signIn('credentials', {
@@ -22,13 +33,27 @@ export default function SignIn() {
 
       if (result.error) {
         setError('Invalid email or password');
+        setIsLoading(false);
       } else {
-        router.push('/dashboard');
+        // Successful login
+        console.log('Sign in successful, redirecting...');
+        router.replace('/dashboard');
       }
     } catch (error) {
+      console.error('Sign in error:', error);
       setError('An error occurred during sign in');
+      setIsLoading(false);
     }
   };
+
+  // If already authenticated, show a loading message
+  if (status === 'authenticated') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="text-white">Redirecting to dashboard...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
@@ -88,9 +113,10 @@ export default function SignIn() {
           <div>
             <button
               type="submit"
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              disabled={isLoading}
+              className={`group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white ${isLoading ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
             >
-              Sign in
+              {isLoading ? 'Signing in...' : 'Sign in'}
             </button>
           </div>
           

@@ -24,11 +24,13 @@ export function withSession(Component, { requireAuth = false } = {}) {
     
     useEffect(() => {
       if (requireAuth && status === 'unauthenticated') {
-        router.push('/auth/signin');
+        console.log('Auth required, but user not authenticated. Redirecting to signin');
+        // Use replace instead of push to avoid a history entry
+        router.replace('/auth/signin');
       }
     }, [requireAuth, status, router]);
     
-    // Show loading state for protected pages
+    // Show loading state while authentication state is being determined
     if (requireAuth && status === 'loading') {
       return (
         <div className="flex items-center justify-center min-h-screen bg-gray-900">
@@ -37,7 +39,7 @@ export function withSession(Component, { requireAuth = false } = {}) {
       );
     }
     
-    // Redirect to sign in for protected pages
+    // Handle non-authenticated users for protected pages
     if (requireAuth && status === 'unauthenticated') {
       return (
         <div className="flex items-center justify-center min-h-screen bg-gray-900">
@@ -46,6 +48,7 @@ export function withSession(Component, { requireAuth = false } = {}) {
       );
     }
     
+    // Render the component with session data
     return <Component {...props} session={session} />;
   };
 } 

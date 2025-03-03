@@ -20,16 +20,6 @@ const nextConfig = {
     // This can improve serverless function initialization
     serverComponentsExternalPackages: ['@prisma/client']
   },
-  // Configure webpack to use our mock tailwindcss module
-  webpack: (config, { isServer }) => {
-    // Alias tailwindcss to our mock implementation
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      'tailwindcss': path.resolve(__dirname, 'src/mocks/tailwindcss.js')
-    };
-    
-    return config;
-  },
   poweredByHeader: false,
 }
 

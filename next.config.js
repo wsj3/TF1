@@ -20,16 +20,14 @@ const nextConfig = {
     // This can improve serverless function initialization
     serverComponentsExternalPackages: ['@prisma/client']
   },
-  // Disable static optimization for auth-dependent pages
-  unstable_runtimeJS: true,
+  // Configure pages that require authentication to be server-side rendered
   pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
-  // Ensure these pages are server-side rendered
-  exportPathMap: async function() {
+  // Configure which pages should be pre-rendered
+  async exportPathMap(defaultPathMap, { dev, dir, outDir, distDir, buildId }) {
     return {
       '/': { page: '/' },
       '/404': { page: '/404' },
-      '/dashboard': { page: '/dashboard' },
-      '/profile': { page: '/profile' }
+      // Remove dashboard and profile from static export
     }
   },
   poweredByHeader: false,

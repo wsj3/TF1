@@ -1,19 +1,18 @@
-import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import Layout from '../components/Layout';
+import { withSession } from '../components/SessionWrapper';
 
-export default function Profile() {
-  const { data: session, status } = useSession();
+function Profile({ session }) {
   const router = useRouter();
   
   // Redirect to sign in if not authenticated
-  if (status === 'unauthenticated') {
+  if (session === null) {
     router.push('/auth/signin');
     return null;
   }
 
   // Loading state
-  if (status === 'loading') {
+  if (session === undefined) {
     return (
       <Layout title="Profile | Therapists Friend">
         <div className="flex justify-center items-center h-64">
@@ -65,4 +64,7 @@ export default function Profile() {
       </div>
     </Layout>
   );
-} 
+}
+
+// Export the wrapped component with auth requirement
+export default withSession(Profile, { requireAuth: true }); 

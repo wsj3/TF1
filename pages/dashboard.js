@@ -1,29 +1,11 @@
 import { useState } from 'react';
-import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import Layout from '../components/Layout';
 import Link from 'next/link';
+import { withSession } from '../components/SessionWrapper';
 
-export default function Dashboard() {
-  const { data: session, status } = useSession();
+function Dashboard({ session }) {
   const router = useRouter();
-  
-  // Redirect to sign in if not authenticated
-  if (status === 'unauthenticated') {
-    router.push('/auth/signin');
-    return null;
-  }
-
-  // Loading state
-  if (status === 'loading') {
-    return (
-      <Layout title="Dashboard | Therapists Friend">
-        <div className="flex justify-center items-center h-64">
-          <p className="text-gray-500">Loading...</p>
-        </div>
-      </Layout>
-    );
-  }
   
   // Dummy data for demonstration
   const [stats] = useState({
@@ -151,4 +133,7 @@ export default function Dashboard() {
       </div>
     </Layout>
   );
-} 
+}
+
+// Export the wrapped component with auth requirement
+export default withSession(Dashboard, { requireAuth: true }); 

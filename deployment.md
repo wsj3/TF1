@@ -199,4 +199,61 @@ If issues are encountered after deployment:
 | 2024-02-28 | 0.2.0 | Added Vercel deployment process | [Your Name] |
 | 2024-11-25 | 0.3.0 | Fix authentication flow and page rendering issues. Add login functionality, profile page, and custom document | [Your Name] |
 
-**Note:** Update this document whenever changes are made to the deployment process. 
+**Note:** Update this document whenever changes are made to the deployment process.
+
+## Recent Changes (March 2, 2025)
+
+### Authentication System Implementation
+1. Added NextAuth.js integration with credentials provider
+2. Created authentication pages and components:
+   - `/pages/auth/signin.js` - Sign-in page
+   - `/pages/api/auth/[...nextauth].js` - NextAuth.js configuration
+   - `/components/SessionWrapper.js` - Session management HOC
+
+### Protected Routes Setup
+1. Updated protected pages to use `withSession` HOC:
+   - `/pages/dashboard.js`
+   - `/pages/profile.js`
+2. Configured routes to handle authentication state properly
+3. Added automatic redirection to sign-in for unauthenticated users
+
+### Next.js Configuration Updates
+1. Modified `next.config.js`:
+   - Removed `unstable_runtimeJS` option
+   - Updated `exportPathMap` to handle static and dynamic pages correctly
+   - Configured proper page extensions
+
+### Environment Variables
+Required environment variables in Vercel:
+1. `NEXTAUTH_SECRET` - JWT encryption key (generated using crypto)
+2. `NEXTAUTH_URL` - Full URL of the deployed application
+
+### Home Page Updates
+1. Simplified layout for better user experience
+2. Added conditional rendering for authentication state:
+   - Shows "Sign In" button for unauthenticated users
+   - Shows "Go to Dashboard" for authenticated users
+
+## Deployment Steps
+1. Ensure all code changes are committed to the staging branch
+2. Configure environment variables in Vercel:
+   ```
+   NEXTAUTH_SECRET=[generated-secret-key]
+   NEXTAUTH_URL=https://[your-vercel-deployment-url]
+   ```
+3. Deploy using Vercel CLI:
+   ```bash
+   vercel deploy --prod
+   ```
+
+## Demo Access
+Test credentials for the application:
+- Email: `demo@therapistsfriend.com`
+- Password: `demo123`
+
+## Troubleshooting
+If authentication issues occur:
+1. Verify environment variables are set correctly in Vercel
+2. Check that NextAuth.js configuration matches the environment
+3. Clear browser cache or test in incognito mode
+4. Review Vercel deployment logs for any session-related errors 

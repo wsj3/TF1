@@ -1,13 +1,13 @@
 {
   "version": 2,
-  "buildCommand": "npm ci && npm run build",
-  "installCommand": "npm ci",
+  "buildCommand": "npm install && npm run build",
+  "installCommand": "npm install",
   "framework": "nextjs",
   "devCommand": "npm run dev",
   "ignoreCommand": null,
   "build": {
     "env": {
-      "CACHE_KEY": "reset-20241002-3",
+      "CACHE_KEY": "reset-20241002-4",
       "NEXT_TELEMETRY_DISABLED": "1"
     }
   },

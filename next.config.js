@@ -20,6 +20,18 @@ const nextConfig = {
     // This can improve serverless function initialization
     serverComponentsExternalPackages: ['@prisma/client']
   },
+  // Disable static optimization for auth-dependent pages
+  unstable_runtimeJS: true,
+  pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
+  // Ensure these pages are server-side rendered
+  exportPathMap: async function() {
+    return {
+      '/': { page: '/' },
+      '/404': { page: '/404' },
+      '/dashboard': { page: '/dashboard' },
+      '/profile': { page: '/profile' }
+    }
+  },
   poweredByHeader: false,
 }
 

@@ -33,7 +33,7 @@ function Clients() {
       <div className="p-6 bg-gray-900 min-h-screen text-white">
         <div className="max-w-7xl mx-auto">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-semibold text-white">Clients</h1>
+            <h1 className="text-2xl font-semibold text-white">Clients <span className="text-blue-400 text-sm">(Updated Version)</span></h1>
             <Link href="/clients/new" legacyBehavior>
               <a className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                 Add Client

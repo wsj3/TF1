@@ -1,24 +1,20 @@
-import { useSession } from 'next-auth/react';
+import { useSession, signIn, getSession } from 'next-auth/react';
 import Layout from '../components/Layout';
-import { withSession } from '../components/SessionWrapper';
-import { useRouter } from 'next/router';
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
-function Dashboard() {
+export default function Dashboard() {
   const { data: session, status } = useSession();
-  const router = useRouter();
-  
+  const [isLoading, setIsLoading] = useState(true);
+
   useEffect(() => {
-    // If not authenticated, redirect to sign in
     if (status === 'unauthenticated') {
-      console.log('User not authenticated, redirecting to signin');
-      // Use window.location for more reliable redirects in development
-      window.location.href = '/auth/signin';
+      signIn();
+    } else if (status !== 'loading') {
+      setIsLoading(false);
     }
   }, [status]);
 
-  // Show loading while checking authentication
-  if (status === 'loading') {
+  if (isLoading || status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
         <div className="text-white">Loading...</div>
@@ -26,7 +22,6 @@ function Dashboard() {
     );
   }
 
-  // If not authenticated, show nothing (redirect will happen via useEffect)
   if (!session) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
@@ -35,7 +30,6 @@ function Dashboard() {
     );
   }
 
-  // Show dashboard for authenticated users
   return (
     <Layout title="Dashboard | Therapist's Friend">
       {/* Empty center area */}
@@ -49,4 +43,20 @@ function Dashboard() {
   );
 }
 
-export default withSession(Dashboard, { requireAuth: true }); 
+// Server-side authentication check
+export async function getServerSideProps(context) {
+  const session = await getSession(context);
+
+  if (!session) {
+    return {
+      redirect: {
+        destination: '/auth/signin',
+        permanent: false,
+      },
+    };
+  }
+
+  return {
+    props: { session }
+  };
+} 

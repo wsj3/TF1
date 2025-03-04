@@ -23,6 +23,20 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    // Get environment variables with fallbacks
+    const jwtSecret = process.env.JWT_SECRET || 'default-development-secret';
+    const cookieName = process.env.AUTH_COOKIE_NAME || 'tf-auth-token';
+    const isProduction = process.env.NODE_ENV === 'production';
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    
+    console.log('Auth environment:', { 
+      env: process.env.NODE_ENV,
+      cookieName,
+      hasJwtSecret: !!process.env.JWT_SECRET,
+      isProduction,
+      isDevelopment
+    });
+
     // Create JWT token
     const token = jwt.sign(
       {
@@ -31,22 +45,22 @@ export default async function handler(req, res) {
         name: user.name,
         role: user.role
       },
-      process.env.JWT_SECRET || 'default-development-secret',
+      jwtSecret,
       { expiresIn: '1d' }
     );
 
+    // Set cookie options based on environment
+    const cookieOptions = {
+      httpOnly: true,
+      // Only use secure=true in production or if explicitly enabled for development
+      secure: isProduction, 
+      sameSite: isProduction ? 'strict' : 'lax', // Less strict for development
+      maxAge: 86400, // 1 day in seconds
+      path: '/'
+    };
+
     // Set HTTP cookie
-    const cookie = serialize(
-      process.env.AUTH_COOKIE_NAME || 'tf-auth-token',
-      token,
-      {
-        httpOnly: true,
-        secure: process.env.NODE_ENV !== 'development',
-        sameSite: 'strict',
-        maxAge: 86400, // 1 day in seconds
-        path: '/'
-      }
-    );
+    const cookie = serialize(cookieName, token, cookieOptions);
 
     // Set cookie header
     res.setHeader('Set-Cookie', cookie);

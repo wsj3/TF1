@@ -29,12 +29,15 @@ export default async function handler(req, res) {
     const isProduction = process.env.NODE_ENV === 'production';
     const isDevelopment = process.env.NODE_ENV === 'development';
     
+    // Add request host info to help debug
     console.log('Auth environment:', { 
       env: process.env.NODE_ENV,
       cookieName,
       hasJwtSecret: !!process.env.JWT_SECRET,
       isProduction,
-      isDevelopment
+      isDevelopment,
+      host: req.headers.host,
+      origin: req.headers.origin
     });
 
     // Create JWT token
@@ -49,12 +52,18 @@ export default async function handler(req, res) {
       { expiresIn: '1d' }
     );
 
+    // Determine if we're on Vercel based on headers or environment
+    const isVercel = req.headers.host?.includes('vercel.app') || 
+                    process.env.VERCEL === '1' ||
+                    !!process.env.VERCEL_URL;
+
     // Set cookie options based on environment
     const cookieOptions = {
       httpOnly: true,
-      // Only use secure=true in production or if explicitly enabled for development
-      secure: isProduction, 
-      sameSite: isProduction ? 'strict' : 'lax', // Less strict for development
+      // Use secure cookies except in local development
+      secure: isProduction || isVercel,
+      // Use lax for Vercel previews to allow redirects and iframe embedding
+      sameSite: isVercel ? 'none' : (isProduction ? 'strict' : 'lax'),
       maxAge: 86400, // 1 day in seconds
       path: '/'
     };

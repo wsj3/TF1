@@ -15,11 +15,11 @@ export default function CustomTopNav() {
           </div>
         )}
         
-        <Link href="/about">
-          <a className="text-gray-300 hover:text-white">About</a>
+        <Link href="/about" className="text-gray-300 hover:text-white">
+          About
         </Link>
-        <Link href="/help">
-          <a className="text-gray-300 hover:text-white">Help</a>
+        <Link href="/help" className="text-gray-300 hover:text-white">
+          Help
         </Link>
         
         {user && (

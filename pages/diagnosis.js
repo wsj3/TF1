@@ -1,9 +1,19 @@
-import { useSession } from 'next-auth/react';
+import { withAuth, useAuth } from '../utils/auth';
 import Layout from '../components/Layout';
-import { withSession } from '../components/SessionWrapper';
 
 function Diagnosis() {
-  const { data: session } = useSession();
+  const { user, loading } = useAuth();
+
+  // Loading state
+  if (loading) {
+    return (
+      <Layout title="Diagnosis | Therapist's Friend">
+        <div className="flex justify-center items-center h-64">
+          <p className="text-gray-500">Loading...</p>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout title="Diagnosis | Therapist's Friend">
@@ -17,4 +27,4 @@ function Diagnosis() {
   );
 }
 
-export default withSession(Diagnosis, { requireAuth: true }); 
+export default withAuth(Diagnosis); 

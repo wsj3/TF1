@@ -1,11 +1,11 @@
 import Head from 'next/head';
-import { useSession } from 'next-auth/react';
+import { useAuth } from '../utils/auth';
 import Sidebar from './Sidebar';
 import TopNav from './TopNav';
 
 export default function Layout({ children, title = 'Therapist\'s Friend' }) {
-  const { data: session } = useSession();
-  const isAuthenticated = !!session;
+  const { user } = useAuth();
+  const isAuthenticated = !!user;
 
   return (
     <div className="min-h-screen bg-gray-900">

@@ -1,9 +1,8 @@
-import { useSession } from 'next-auth/react';
 import Layout from '../components/Layout';
-import { withSession } from '../components/SessionWrapper';
+import { withAuth, useAuth } from '../utils/auth';
 
 function Appointments() {
-  const { data: session } = useSession();
+  const { user } = useAuth();
 
   return (
     <Layout title="Appointments | Therapist's Friend">
@@ -17,4 +16,4 @@ function Appointments() {
   );
 }
 
-export default withSession(Appointments, { requireAuth: true }); 
+export default withAuth(Appointments); 

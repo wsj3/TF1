@@ -2,7 +2,7 @@ import { useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import Layout from '../../components/Layout';
-import { withSession } from '../../components/SessionWrapper';
+import { withAuth } from '../../utils/auth';
 
 function Clients() {
   // Dummy data for demonstration
@@ -34,10 +34,8 @@ function Clients() {
         <div className="max-w-7xl mx-auto">
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-semibold text-white">Clients <span className="text-blue-400 text-sm">(Updated Version)</span></h1>
-            <Link href="/clients/new" legacyBehavior>
-              <a className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                Add Client
-              </a>
+            <Link href="/clients/new" className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+              Add Client
             </Link>
           </div>
           
@@ -119,11 +117,11 @@ function Clients() {
                             </span>
                           </td>
                           <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                            <Link href={`/clients/${client.id}`} legacyBehavior>
-                              <a className="text-blue-400 hover:text-blue-300 mr-4">View</a>
+                            <Link href={`/clients/${client.id}`} className="text-blue-400 hover:text-blue-300 mr-4">
+                              View
                             </Link>
-                            <Link href={`/clients/${client.id}/edit`} legacyBehavior>
-                              <a className="text-blue-400 hover:text-blue-300">Edit</a>
+                            <Link href={`/clients/${client.id}/edit`} className="text-blue-400 hover:text-blue-300">
+                              Edit
                             </Link>
                           </td>
                         </tr>
@@ -140,23 +138,4 @@ function Clients() {
   );
 }
 
-export default withSession(Clients, { requireAuth: true });
-
-// Server-side authentication check
-export async function getServerSideProps(context) {
-  const { getSession } = await import('next-auth/react');
-  const session = await getSession(context);
-
-  if (!session) {
-    return {
-      redirect: {
-        destination: '/auth/signin',
-        permanent: false,
-      },
-    };
-  }
-
-  return {
-    props: { session }
-  };
-} 
+export default withAuth(Clients); 

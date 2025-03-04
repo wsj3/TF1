@@ -1,20 +1,19 @@
-import { useSession } from 'next-auth/react';
 import Layout from '../components/Layout';
-import { withSession } from '../components/SessionWrapper';
+import { withAuth, useAuth } from '../utils/auth';
 
 function Sessions() {
-  const { data: session } = useSession();
+  const { user } = useAuth();
 
   return (
     <Layout title="Sessions | Therapist's Friend">
       <div className="p-6">
-        <h1 className="text-2xl font-bold text-white mb-4">Sessions</h1>
+        <h1 className="text-2xl font-bold text-white mb-4">Therapy Sessions</h1>
         <div className="bg-gray-800 rounded-lg p-6">
-          <p className="text-gray-300">Therapy sessions management content will go here.</p>
+          <p className="text-gray-300">Session records and management features will go here.</p>
         </div>
       </div>
     </Layout>
   );
 }
 
-export default withSession(Sessions, { requireAuth: true }); 
+export default withAuth(Sessions); 

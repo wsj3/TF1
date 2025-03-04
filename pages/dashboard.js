@@ -1,30 +1,10 @@
-import { useEffect, useState } from 'react';
-import { getSession, useSession } from 'next-auth/react';
-import Layout from '../components/Layout';
+import { useState } from 'react';
 import CustomLayout from '../components/CustomLayout';
 import { withAuth, useAuth } from '../utils/auth';
 
 // The main dashboard component
-function Dashboard({ initialSession }) {
-  // Support both auth systems
-  const { data: nextAuthSession } = useSession();
-  const { user: customAuthUser } = useAuth();
-  const [user, setUser] = useState(null);
-  const [authMethod, setAuthMethod] = useState(null);
-  
-  useEffect(() => {
-    // Prefer custom auth, fall back to NextAuth
-    if (customAuthUser) {
-      setUser(customAuthUser);
-      setAuthMethod('Custom Auth');
-    } else if (nextAuthSession?.user || initialSession?.user) {
-      setUser(nextAuthSession?.user || initialSession?.user);
-      setAuthMethod('NextAuth');
-    }
-  }, [nextAuthSession, customAuthUser, initialSession]);
-
-  // Determine which layout to use
-  const LayoutComponent = customAuthUser ? CustomLayout : Layout;
+function Dashboard() {
+  const { user } = useAuth();
   
   // Simple loading state
   if (!user) {
@@ -36,7 +16,7 @@ function Dashboard({ initialSession }) {
   }
   
   return (
-    <LayoutComponent title="Dashboard | Therapist's Friend">
+    <CustomLayout title="Dashboard | Therapist's Friend">
       <div className="py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
           <h1 className="text-2xl font-semibold text-white">Dashboard</h1>
@@ -57,7 +37,7 @@ function Dashboard({ initialSession }) {
               <h3 className="text-md font-medium text-blue-400 mb-3">Authentication Info:</h3>
               <div className="text-sm grid grid-cols-2 gap-2">
                 <div className="text-gray-400">Auth Method:</div>
-                <div className="text-gray-200">{authMethod}</div>
+                <div className="text-gray-200">Custom Auth</div>
                 <div className="text-gray-400">Email:</div>
                 <div className="text-gray-200">{user.email}</div>
                 <div className="text-gray-400">Role:</div>
@@ -160,27 +140,9 @@ function Dashboard({ initialSession }) {
           </div>
         </div>
       </div>
-    </LayoutComponent>
+    </CustomLayout>
   );
 }
 
-// Server-side authentication check
-export async function getServerSideProps(context) {
-  // Try to get NextAuth session
-  const session = await getSession(context);
-  
-  // If using NextAuth and authenticated, proceed
-  if (session) {
-    return {
-      props: { initialSession: session }
-    };
-  }
-  
-  // Otherwise, let client-side handling take over
-  return {
-    props: { initialSession: null }
-  };
-}
-
-// Use our custom auth wrapper as well
+// Use our custom auth wrapper
 export default withAuth(Dashboard); 

@@ -1,9 +1,18 @@
 import { useState, useEffect } from 'react';
-import { getSession } from 'next-auth/react';
 import Head from 'next/head';
 import Link from 'next/link';
+import { useAuth } from '../utils/auth';
 
 export default function Home() {
+  const { user } = useAuth();
+  
+  // If user is logged in, redirect to dashboard
+  useEffect(() => {
+    if (user) {
+      window.location.href = '/dashboard';
+    }
+  }, [user]);
+  
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900">
       <Head>
@@ -23,23 +32,15 @@ export default function Home() {
         </p>
 
         <div className="mt-8 flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4">
-          <Link href="/auth/signin">
-            <a className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded">
-              Sign In (NextAuth)
-            </a>
-          </Link>
-          <Link href="/auth/simple-signin">
-            <a className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded">
-              Sign In (Simple Auth)
-            </a>
+          <Link href="/auth/simple-signin" className="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded">
+            Sign In
           </Link>
         </div>
         
         <div className="mt-8 p-4 bg-gray-800 rounded-lg max-w-md">
-          <h2 className="text-xl font-bold text-white mb-2">Authentication Test</h2>
+          <h2 className="text-xl font-bold text-white mb-2">Authentication System</h2>
           <p className="text-gray-300 mb-4">
-            We've implemented two different authentication systems to resolve login issues.
-            Please try the Simple Auth option if you're experiencing problems.
+            We've implemented a custom authentication system to improve reliability.
           </p>
           <div className="text-sm text-gray-400 mt-2">
             <p>Demo credentials: demo@therapistsfriend.com / demo123</p>
@@ -54,23 +55,4 @@ export default function Home() {
       </footer>
     </div>
   );
-}
-
-// Server-side check if user is authenticated
-export async function getServerSideProps(context) {
-  const session = await getSession(context);
-
-  // If the user is already authenticated, redirect to dashboard
-  if (session) {
-    return {
-      redirect: {
-        destination: '/dashboard',
-        permanent: false,
-      },
-    };
-  }
-
-  return {
-    props: {},
-  };
 } 

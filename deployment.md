@@ -223,4 +223,98 @@ If authentication issues occur:
 1. Verify environment variables are set correctly in Vercel
 2. Check that NextAuth.js configuration matches the environment
 3. Clear browser cache or test in incognito mode
-4. Review Vercel deployment logs for any session-related errors 
+4. Review Vercel deployment logs for any session-related errors
+
+## Recent Deployments
+
+### Staging Deployment - [Current Date]
+1. Deployed authentication fixes:
+   - Fixed issues with NextAuth URL configuration to properly handle different environments
+   - Updated session handling to use the correct origins for redirects
+   - Added more robust environment detection for both development and staging
+2. Deployment URL: https://tf-1-17gn3e8ty-will-johnstons-projects-4f35a9d5.vercel.app
+3. Deployment was successful with no migration changes needed
+4. Test account: demo@therapistsfriend.com / demo123
+
+**Note:** All users should clear their browser cache and cookies if experiencing any authentication issues after this deployment.
+
+## Recent Changes (May 1, 2025)
+
+### Authentication System Update
+1. **Migrated from NextAuth.js to Custom Authentication System**
+   - Removed NextAuth.js dependencies and components
+   - Implemented custom authentication through the `utils/auth.js` module
+   - Updated all protected pages to use the new authentication system
+   - Updated pages:
+     - `/pages/clients.js`
+     - `/pages/tasks.js`
+     - `/pages/appointments.js`
+     - `/pages/sessions.js`
+     - `/pages/profile.js`
+     - `/pages/billing.js`
+     - `/pages/diagnosis.js`
+
+2. **Authentication Configuration Changes**
+   - Custom auth system relies on different environment variables:
+     - `JWT_SECRET` - Required for JWT token generation and validation
+     - `API_BASE_URL` - Base URL for authentication API endpoints
+     - `AUTH_COOKIE_NAME` - Name of the cookie used for authentication (default: 'auth-token')
+
+3. **Protected Routes Changes**
+   - All protected routes now use `withAuth` HOC instead of `withSession`
+   - Authentication state is now managed via `useAuth` hook
+
+### Environment Variable Changes
+Required environment variables in Vercel:
+1. `JWT_SECRET` - Secret key for JWT token signing (previously NEXTAUTH_SECRET)
+2. `API_BASE_URL` - Authentication API base URL
+
+### Deployment Considerations
+1. **Before Deployment**:
+   - Ensure all authentication environment variables are configured in production
+   - Back up the current deployment state using `./backup.ps1`
+   - Verify that the custom auth system works in the staging environment
+
+2. **Potential Issues**:
+   - Users may need to log in again after deployment
+   - Previous sessions will be invalidated
+   - Ensure the authentication API endpoints are accessible from the production environment
+
+3. **Testing After Deployment**:
+   - Test login flow
+   - Test protected page access
+   - Test session persistence across page refreshes
+   - Verify proper redirection for unauthenticated users
+
+### Rollback Plan
+If authentication issues occur:
+1. Restore the previous deployment from backup:
+   ```powershell
+   ./backup.ps1 restore --backup-file <latest-backup>
+   ```
+2. Verify that the previous environment variables are still in place
+3. Update the deployment documentation with the rollback information
+
+## Troubleshooting Authentication Issues
+
+### Common Authentication Issues
+1. **Session Not Persisting**
+   - Check that cookies are being properly set and read
+   - Verify JWT token expiration times
+   - Check for CORS issues with authentication API
+
+2. **API Connection Problems**
+   - Verify API_BASE_URL is correctly set
+   - Check network logs for authentication request failures
+   - Verify API is accessible from the production environment
+
+3. **JWT Validation Errors**
+   - Ensure JWT_SECRET matches between client and server
+   - Check token format and signing algorithm
+   - Verify clock synchronization if using time-based tokens
+
+### Recovery Steps
+1. Clear browser cache and cookies
+2. Try authentication in an incognito window
+3. Check server logs for authentication errors
+4. Contact the development team if issues persist 

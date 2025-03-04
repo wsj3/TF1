@@ -19,13 +19,11 @@ export default function Sidebar() {
   return (
     <div className="fixed left-0 top-0 bottom-0 w-64 bg-gray-900 border-r border-gray-800">
       <div className="flex items-center h-16 px-4 border-b border-gray-800">
-        <Link href="/">
-          <div className="flex items-center">
-            <div className="w-8 h-8 mr-2">
-              <img src="/logo.svg" alt="Logo" className="w-8 h-8" />
-            </div>
-            <span className="text-white text-xl font-bold">Therapist's Friend</span>
+        <Link href="/" className="flex items-center">
+          <div className="w-8 h-8 mr-2">
+            <img src="/logo.svg" alt="Logo" className="w-8 h-8" />
           </div>
+          <span className="text-white text-xl font-bold">Therapist's Friend</span>
         </Link>
       </div>
       
@@ -33,25 +31,28 @@ export default function Sidebar() {
         {navigation.map((item) => {
           const isActive = router.pathname === item.href;
           return (
-            <Link href={item.href} key={item.name}>
-              <div className={`
+            <Link 
+              href={item.href} 
+              key={item.name}
+              className={`
                 group flex items-center px-2 py-2 text-base font-medium rounded-md
                 ${isActive ? 'bg-gray-800 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}
-              `}>
-                <span className="mr-4">{getIcon(item.icon, isActive)}</span>
-                {item.name}
-              </div>
+              `}
+            >
+              <span className="mr-4">{getIcon(item.icon, isActive)}</span>
+              {item.name}
             </Link>
           );
         })}
       </nav>
       
       <div className="absolute bottom-0 w-full px-2 py-4 space-y-2 border-t border-gray-800">
-        <Link href="/ai-assistant">
-          <div className="flex items-center px-2 py-2 text-sm font-medium rounded-md text-blue-400 hover:bg-gray-700">
-            <span className="mr-3">{getIcon('ai', false)}</span>
-            AI Assistant
-          </div>
+        <Link 
+          href="/ai-assistant"
+          className="flex items-center px-2 py-2 text-sm font-medium rounded-md text-blue-400 hover:bg-gray-700"
+        >
+          <span className="mr-3">{getIcon('ai', false)}</span>
+          AI Assistant
         </Link>
         
         <div className="px-2">

@@ -1,18 +1,13 @@
 import { useRouter } from 'next/router';
 import Layout from '../components/Layout';
-import { withSession } from '../components/SessionWrapper';
+import { withAuth, useAuth } from '../utils/auth';
 
-function Profile({ session }) {
+function Profile() {
   const router = useRouter();
+  const { user, loading } = useAuth();
   
-  // Redirect to sign in if not authenticated
-  if (session === null) {
-    router.push('/auth/signin');
-    return null;
-  }
-
   // Loading state
-  if (session === undefined) {
+  if (loading) {
     return (
       <Layout title="Profile | Therapists Friend">
         <div className="flex justify-center items-center h-64">
@@ -40,7 +35,7 @@ function Profile({ session }) {
                 Name
               </dt>
               <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                {session?.user?.name || 'Not provided'}
+                {user?.name || 'Not provided'}
               </dd>
             </div>
             <div className="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
@@ -48,7 +43,7 @@ function Profile({ session }) {
                 Email
               </dt>
               <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                {session?.user?.email || 'Not provided'}
+                {user?.email || 'Not provided'}
               </dd>
             </div>
             <div className="bg-gray-50 px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
@@ -56,7 +51,7 @@ function Profile({ session }) {
                 Account Type
               </dt>
               <dd className="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                {session?.user?.role || 'Standard User'}
+                {user?.role || 'Standard User'}
               </dd>
             </div>
           </dl>
@@ -67,4 +62,4 @@ function Profile({ session }) {
 }
 
 // Export the wrapped component with auth requirement
-export default withSession(Profile, { requireAuth: true }); 
+export default withAuth(Profile); 

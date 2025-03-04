@@ -1,6 +1,5 @@
 // Custom authentication utilities
 import { useState, useEffect, createContext, useContext } from 'react';
-import { parse } from 'cookie';
 import Router from 'next/router';
 
 // Create auth context
@@ -17,21 +16,26 @@ export function AuthProvider({ children }) {
     try {
       setLoading(true);
       const res = await fetch('/api/auth/session');
+      
       if (res.ok) {
         const data = await res.json();
         setUser(data.user);
+        return data.user;
       } else {
         setUser(null);
+        return null;
       }
     } catch (err) {
-      console.error('Failed to get session', err);
+      console.error("Failed to get session", err);
+      setError(err);
       setUser(null);
+      return null;
     } finally {
       setLoading(false);
     }
   };
 
-  // Login function
+  // Function to login user
   const login = async (email, password) => {
     try {
       setLoading(true);
@@ -39,110 +43,110 @@ export function AuthProvider({ children }) {
       
       const res = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
       });
       
       const data = await res.json();
       
       if (res.ok) {
-        setUser(data.user);
-        return { success: true };
+        await getSession(); // Refresh the session
+        return true;
       } else {
         setError(data.error || 'Login failed');
-        return { 
-          success: false, 
-          error: data.error || 'Login failed' 
-        };
+        return false;
       }
     } catch (err) {
-      console.error('Login error', err);
-      setError('An unexpected error occurred');
-      return { 
-        success: false, 
-        error: 'An unexpected error occurred' 
-      };
+      console.error("Login error", err);
+      setError(err.message || 'An error occurred during login');
+      return false;
     } finally {
       setLoading(false);
     }
   };
 
-  // Logout function
+  // Function to logout user
   const logout = async () => {
     try {
-      await fetch('/api/auth/logout');
-      setUser(null);
-      Router.push('/');
+      setLoading(true);
+      const res = await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (res.ok) {
+        setUser(null);
+        Router.push('/auth/signin');
+        return true;
+      } else {
+        const data = await res.json();
+        setError(data.error || 'Logout failed');
+        return false;
+      }
     } catch (err) {
-      console.error('Logout error', err);
+      console.error("Logout error", err);
+      setError(err.message || 'An error occurred during logout');
+      return false;
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Check session on mount and when cookies change
+  // Check session on initial load
   useEffect(() => {
     getSession();
   }, []);
 
-  // Create auth value object
   const value = {
     user,
     loading,
     error,
     login,
     logout,
-    getSession,
+    getSession
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// Hook to use auth
-export function useAuth() {
-  return useContext(AuthContext);
-}
+// Custom hook to use auth
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
 
-// HOC to protect routes
-export function withAuth(Component) {
-  const AuthenticatedComponent = (props) => {
+// HOC to protect pages
+export const withAuth = (Component) => {
+  const WithAuth = (props) => {
     const { user, loading } = useAuth();
     const [mounted, setMounted] = useState(false);
-    
+
     useEffect(() => {
       setMounted(true);
     }, []);
 
-    // Don't render anything until the component is mounted on the client
-    if (!mounted) return null;
-    
-    // Show loading indicator
-    if (loading) {
-      return (
-        <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-          <div className="text-white">Loading...</div>
-        </div>
-      );
-    }
-    
-    // Redirect to login if not authenticated
-    if (!user) {
-      if (typeof window !== 'undefined') {
-        Router.replace('/auth/simple-signin');
+    // Check if user is authenticated
+    useEffect(() => {
+      if (mounted && !loading && !user) {
+        Router.push('/auth/signin');
       }
-      return (
-        <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-          <div className="text-white">Redirecting to sign in...</div>
-        </div>
-      );
+    }, [user, loading, mounted]);
+
+    // Show nothing while loading or redirecting
+    if (loading || !mounted || !user) {
+      return null;
     }
-    
-    // Render the component if authenticated
-    return <Component {...props} user={user} />;
+
+    // If authenticated, render the component
+    return <Component {...props} />;
   };
-  
-  return AuthenticatedComponent;
-}
+
+  WithAuth.displayName = `WithAuth(${Component.displayName || Component.name || 'Component'})`;
+  return WithAuth;
+};
 
 // Get session on server side
 export async function getServerSideSession(req) {

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { signIn, useSession } from 'next-auth/react';
+import { useState } from 'react';
+import { signIn } from 'next-auth/react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 
@@ -8,63 +8,45 @@ export default function SignIn() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [debug, setDebug] = useState({});
   const router = useRouter();
-  const { data: session, status } = useSession();
-
-  // Capture debug information
-  useEffect(() => {
-    setDebug({
-      query: router.query,
-      sessionStatus: status,
-      hasSession: !!session,
-      environment: process.env.NODE_ENV,
-      baseUrl: process.env.NEXT_PUBLIC_API_URL,
-      timestamp: new Date().toISOString()
-    });
-  }, [router.query, session, status]);
-
-  // If the page has an error query param, display it
-  useEffect(() => {
+  
+  // If there's an error in the URL, display it
+  useState(() => {
     if (router.query.error) {
       setError(router.query.error);
     }
-  }, [router.query]);
-
+  }, [router.query.error]);
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
-
+    
     try {
-      console.log('Attempting sign in with:', email);
-      
-      // Use signIn with detailed parameters for better tracking
+      // Use the most basic sign-in approach
       const result = await signIn('credentials', {
-        redirect: false, // Don't redirect automatically so we can handle errors
+        redirect: false,
         email,
         password,
       });
       
-      console.log('Sign in result:', result);
-      
       if (result?.error) {
-        setError(result.error || 'Authentication failed');
+        setError(result.error || 'Invalid email or password');
         setIsLoading(false);
+      } else if (result?.ok) {
+        // Manually redirect on success
+        window.location.href = '/dashboard';
       } else {
-        // On success, redirect
-        router.push('/dashboard');
+        setError('Something went wrong. Please try again.');
+        setIsLoading(false);
       }
     } catch (err) {
       console.error('Sign in error:', err);
-      setError('An unexpected error occurred. Please try again.');
+      setError('An unexpected error occurred');
       setIsLoading(false);
     }
   };
-
-  // Show debug panel toggle
-  const [showDebug, setShowDebug] = useState(false);
-
+  
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
       <Head>
@@ -141,32 +123,19 @@ export default function SignIn() {
           </p>
         </div>
         
-        {/* Debug toggle */}
-        <div className="text-center mt-6">
-          <button 
-            type="button" 
-            onClick={() => setShowDebug(!showDebug)}
-            className="text-xs text-gray-500 underline"
-          >
-            {showDebug ? 'Hide Debug Info' : 'Show Debug Info'}
-          </button>
-        </div>
-        
-        {/* Debug information panel */}
-        {showDebug && (
-          <div className="mt-4 p-4 border border-gray-700 rounded bg-gray-800 text-xs text-gray-400 overflow-auto max-h-60">
-            <h3 className="font-bold text-white">Debug Information</h3>
-            <p>Session Status: {status}</p>
-            <p>Has Session: {session ? 'Yes' : 'No'}</p>
-            <p>Environment: {process.env.NODE_ENV}</p>
-            {router.query.error && <p className="text-red-400">Error: {router.query.error}</p>}
-            
-            <div className="mt-2">
-              <p className="font-bold text-white">State:</p>
-              <pre>{JSON.stringify(debug, null, 2)}</pre>
-            </div>
+        {/* Basic debug information */}
+        <div className="mt-6 p-4 border border-gray-700 rounded bg-gray-800 text-xs text-gray-400">
+          <div className="font-bold text-white">Troubleshooting</div>
+          <div className="mt-2">
+            <p>If login isn't working:</p>
+            <ol className="list-decimal pl-5 mt-1 space-y-1">
+              <li>Check that you've entered the correct credentials</li>
+              <li>Clear your browser cookies and try again</li>
+              <li>Try using a different browser</li>
+              <li>Check the browser console for errors (F12)</li>
+            </ol>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

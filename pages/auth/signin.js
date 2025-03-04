@@ -1,36 +1,12 @@
-import { useState, useEffect } from 'react';
-import { signIn, getSession } from 'next-auth/react';
+import { useState } from 'react';
+import { signIn } from 'next-auth/react';
 import Head from 'next/head';
-import Image from 'next/image';
-import Link from 'next/link';
 
 export default function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [origin, setOrigin] = useState('');
-  const [debugInfo, setDebugInfo] = useState(null);
-
-  // Get the current origin on component mount
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const currentOrigin = window.location.origin;
-      setOrigin(currentOrigin);
-      
-      // Get debug info
-      const debugData = {
-        origin: currentOrigin,
-        pathname: window.location.pathname,
-        userAgent: window.navigator.userAgent,
-        href: window.location.href,
-        host: window.location.host
-      };
-      setDebugInfo(debugData);
-      
-      console.log('SignIn Page Environment:', debugData);
-    }
-  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -38,29 +14,17 @@ export default function SignIn() {
     setError('');
     
     try {
-      // Ensure we have the current origin
-      const currentOrigin = origin || (typeof window !== 'undefined' ? window.location.origin : '');
-      
-      // Always use the current origin for the callback URL
-      const callbackUrl = `${currentOrigin}/dashboard`;
-      console.log('Signing in with callback URL:', callbackUrl);
-      console.log('Credentials:', { email, password: '********' });
-      
-      // Use redirect: true to let NextAuth handle the redirect
-      const result = await signIn('credentials', {
-        redirect: true,
-        callbackUrl: '/dashboard',
+      // Simple approach with direct redirect
+      await signIn('credentials', {
         email,
-        password
+        password,
+        callbackUrl: '/dashboard',
+        redirect: true
       });
       
-      // This code will only run if redirect is false
-      console.log('Sign in result:', result);
-      
-      if (result?.error) {
-        setError(result.error);
-        setIsLoading(false);
-      }
+      // Note: The code below will not execute due to the redirect
+      // It's only here as a fallback
+      setIsLoading(false);
     } catch (err) {
       console.error('Sign in error:', err);
       setError('An unexpected error occurred. Please try again.');
@@ -82,11 +46,6 @@ export default function SignIn() {
           <p className="mt-2 text-center text-sm text-gray-400">
             Sign in to your account
           </p>
-          {origin && (
-            <p className="mt-2 text-center text-xs text-gray-500">
-              Current origin: {origin}
-            </p>
-          )}
         </div>
 
         {error && (
@@ -147,54 +106,8 @@ export default function SignIn() {
           <p className="text-xs text-gray-500 mt-1">
             Alternative: demo@example.com / password
           </p>
-          
-          {/* Add a button to manually go to dashboard for testing */}
-          <div className="mt-4">
-            <Link href="/dashboard">
-              <button className="text-xs text-blue-500 underline">
-                Directly Go to Dashboard (Testing)
-              </button>
-            </Link>
-          </div>
-          
-          {/* Debug information (collapsible) */}
-          {debugInfo && (
-            <div className="mt-4 text-left text-xs text-gray-500 border border-gray-800 rounded p-2">
-              <details>
-                <summary className="cursor-pointer font-medium">Debug Information</summary>
-                <pre className="mt-2 whitespace-pre-wrap">{JSON.stringify(debugInfo, null, 2)}</pre>
-              </details>
-            </div>
-          )}
         </div>
       </div>
     </div>
   );
-}
-
-export async function getServerSideProps(context) {
-  try {
-    console.log('getServerSideProps for signin page');
-    const session = await getSession(context);
-    console.log('Session status:', session ? 'authenticated' : 'unauthenticated');
-    
-    if (session) {
-      console.log('User already authenticated, redirecting to dashboard');
-      return {
-        redirect: {
-          destination: '/dashboard',
-          permanent: false,
-        },
-      };
-    }
-    
-    return {
-      props: {},
-    };
-  } catch (error) {
-    console.error('Error in getServerSideProps:', error);
-    return {
-      props: {},
-    };
-  }
 } 

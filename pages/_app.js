@@ -1,8 +1,9 @@
 import { SessionProvider } from 'next-auth/react';
+import { AuthProvider } from '../utils/auth';
 import '../styles/globals.css';
 
 function MyApp({ Component, pageProps }) {
-  // Use the layout defined at the page level, if available
+  // Use both providers for backwards compatibility while migrating
   return (
     <SessionProvider 
       session={pageProps.session}
@@ -11,7 +12,9 @@ function MyApp({ Component, pageProps }) {
       // Re-fetch session when window focuses
       refetchOnWindowFocus={true}
     >
-      <Component {...pageProps} />
+      <AuthProvider>
+        <Component {...pageProps} />
+      </AuthProvider>
     </SessionProvider>
   );
 }

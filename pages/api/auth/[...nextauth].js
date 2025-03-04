@@ -19,10 +19,15 @@ const users = [
   }
 ];
 
-// Log all environment variables for debugging
-console.log('Environment Variables:');
+// Determine the base URL based on environment
+const baseUrl = process.env.NEXTAUTH_URL || 
+               (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+
+// Log critical configuration for debugging
+console.log('=== NextAuth Configuration ===');
 console.log(`NODE_ENV: ${process.env.NODE_ENV}`);
-console.log(`NEXTAUTH_URL: ${process.env.NEXTAUTH_URL}`);
+console.log(`NEXTAUTH_URL: ${baseUrl}`);
+console.log(`Using debug mode: ${process.env.NEXTAUTH_DEBUG === 'true' || true}`);
 
 export default NextAuth({
   providers: [
@@ -36,14 +41,14 @@ export default NextAuth({
         try {
           console.log(`Login attempt with email: ${credentials.email}`);
           
-          // Add your own authentication logic here
+          // Find user with matching credentials
           const user = users.find(user => 
             user.email === credentials.email && 
             user.password === credentials.password
           );
           
           if (user) {
-            console.log(`User authenticated: ${user.email}`);
+            console.log(`User authenticated successfully: ${user.email}`);
             return {
               id: user.id,
               name: user.name,
@@ -52,8 +57,8 @@ export default NextAuth({
             };
           }
           
-          console.log('Authentication failed: Invalid credentials');
-          return null; // Return null instead of throwing an error
+          console.log(`Authentication failed for: ${credentials.email}`);
+          return null;
         } catch (error) {
           console.error('Authentication error:', error);
           return null;
@@ -63,20 +68,22 @@ export default NextAuth({
   ],
   pages: {
     signIn: '/auth/signin',
-    error: '/auth/error', // Error code passed in query string as ?error=
+    error: '/auth/error',
   },
   callbacks: {
     async jwt({ token, user }) {
-      // Add role to JWT token
+      // Add user data to JWT token
       if (user) {
         token.role = user.role;
+        token.userId = user.id;
       }
       return token;
     },
     async session({ session, token }) {
-      // Add role to session
+      // Add user data to session
       if (token) {
         session.user.role = token.role;
+        session.user.id = token.userId;
       }
       return session;
     },
@@ -85,6 +92,11 @@ export default NextAuth({
     strategy: 'jwt',
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
-  secret: process.env.NEXTAUTH_SECRET || 'your-fallback-secret-key', // Replace in production
-  debug: true, // Enable debugging for all environments until we resolve the issue
+  // Use a consistent secret across environments
+  secret: process.env.NEXTAUTH_SECRET || 
+         (process.env.NODE_ENV === 'production' 
+          ? undefined // Force error in production if secret is missing
+          : 'dev-secret-do-not-use-in-production'),
+  // Enable debugging based on environment variable or always in development
+  debug: process.env.NEXTAUTH_DEBUG === 'true' || process.env.NODE_ENV !== 'production',
 }); 

@@ -46,21 +46,20 @@ export default function SignIn() {
       console.log('Signing in with callback URL:', callbackUrl);
       console.log('Credentials:', { email, password: '********' });
       
+      // Use redirect: true to let NextAuth handle the redirect
       const result = await signIn('credentials', {
-        redirect: false, // Change to false to handle manually
-        callbackUrl,
+        redirect: true,
+        callbackUrl: '/dashboard',
         email,
         password
       });
       
+      // This code will only run if redirect is false
       console.log('Sign in result:', result);
       
       if (result?.error) {
         setError(result.error);
         setIsLoading(false);
-      } else if (result?.url) {
-        console.log('Successful login, redirecting to:', result.url);
-        window.location.href = result.url;
       }
     } catch (err) {
       console.error('Sign in error:', err);

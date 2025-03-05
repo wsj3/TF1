@@ -69,9 +69,35 @@ export default function AppointmentCalendar({ onSessionClick, onDateSelect }) {
       const data = await response.json();
       console.log('Raw API response:', data);
       
-      // Handle both formats: direct array or {sessions: [...]}
-      const sessionsArray = Array.isArray(data) ? data : data.sessions || [];
-      console.log(`Received ${sessionsArray.length} sessions from API`);
+      // Handle different response formats
+      let sessionsArray = [];
+      if (Array.isArray(data)) {
+        console.log('Response is an array');
+        sessionsArray = data;
+      } else if (data.sessions && Array.isArray(data.sessions)) {
+        console.log('Response has sessions property with array');
+        sessionsArray = data.sessions;
+      } else {
+        console.log('Unexpected response format:', typeof data, Object.keys(data));
+        // Try to extract sessions from any property that might be an array
+        for (const key in data) {
+          if (Array.isArray(data[key])) {
+            console.log(`Found array in property: ${key} with ${data[key].length} items`);
+            if (data[key].length > 0 && data[key][0].startTime) {
+              console.log('This array appears to contain sessions');
+              sessionsArray = data[key];
+              break;
+            }
+          }
+        }
+      }
+      
+      console.log(`Processed ${sessionsArray.length} sessions from API`);
+      
+      // Log a sample session if available
+      if (sessionsArray.length > 0) {
+        console.log('Sample session:', sessionsArray[0]);
+      }
       
       setSessions(sessionsArray);
 

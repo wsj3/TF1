@@ -3,6 +3,9 @@ import { useRouter } from 'next/router';
 import { useAuth } from '../../utils/auth';
 import Layout from '../../components/Layout';
 
+// Add deployment timestamp for verification
+const DEPLOY_VERSION = 'Auto-deployed: ' + new Date().toISOString();
+
 export default function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -98,6 +101,8 @@ export default function SignIn() {
 
             <div className="text-center text-xs text-gray-400 mt-4">
               <p>Demo credentials: demo@therapistsfriend.com / demo123</p>
+              {/* Add version marker at the bottom for easy verification */}
+              <p className="text-xs text-gray-600 mt-2">{DEPLOY_VERSION}</p>
             </div>
           </form>
         </div>

@@ -54,8 +54,25 @@ export default function AppointmentCalendar({ onSessionClick, onDateSelect }) {
       
       console.log(`Fetching sessions from ${startStr} to ${endStr}`);
       
+      // Check for staging/vercel environment and force demo mode if needed
+      const isStaging = typeof window !== 'undefined' && 
+                       (window.location.hostname.includes('staging') || 
+                        window.location.hostname.includes('vercel.app'));
+      
       // Add demo mode query parameter for testing without authentication
-      const isDemoMode = router.query.demo === 'true';
+      const isDemoMode = router.query.demo === 'true' || isStaging;
+      
+      // Debug information for troubleshooting
+      setDebugInfo(prev => ({
+        ...prev,
+        data: {
+          fetchStarted: new Date().toISOString(),
+          isStaging,
+          isDemoMode,
+          dateRange: { startStr, endStr }
+        }
+      }));
+      
       const queryParams = new URLSearchParams({
         start: startStr,
         end: endStr,

@@ -35,70 +35,70 @@ export default function AppointmentCalendar({ onSessionClick, onDateSelect }) {
     }
   }, [user]);
 
+  // Add a useEffect to log sessions whenever they change
+  useEffect(() => {
+    console.log('SESSIONS STATE CHANGED:', sessions);
+    console.log('Number of sessions:', sessions.length);
+    
+    // Force a refresh of the calendar when sessions change
+    if (calendarRef.current) {
+      const calendarApi = calendarRef.current.getApi();
+      calendarApi.refetchEvents();
+      console.log('Calendar events refetched');
+    }
+  }, [sessions]);
+
   // Fetch sessions for a date range
   const fetchSessions = async (date) => {
     try {
       setIsLoading(true);
-      setError(null);
+      const startDate = new Date(date);
+      startDate.setDate(startDate.getDate() - 15); // Fetch two weeks prior
+
+      const endDate = new Date(date);
+      endDate.setDate(endDate.getDate() + 45); // Fetch 45 days ahead
+
+      console.log('Fetching sessions with date range:', {
+        start: startDate.toISOString(),
+        end: endDate.toISOString()
+      });
+
+      const start = startDate.toISOString();
+      const end = endDate.toISOString();
       
-      const currentDate = date || new Date();
-      const startDate = new Date(currentDate);
-      startDate.setDate(startDate.getDate() - 30); // 30 days before
+      const url = `/api/sessions?start=${start}&end=${end}`;
+      console.log('API URL:', url);
       
-      const endDate = new Date(currentDate);
-      endDate.setDate(endDate.getDate() + 60); // 60 days ahead
-      
-      console.log(`Fetching sessions from ${startDate.toISOString()} to ${endDate.toISOString()}`);
-      
-      const formattedStartDate = startDate.toISOString().split('T')[0];
-      const formattedEndDate = endDate.toISOString().split('T')[0];
-      
-      // Add a timestamp to prevent browser caching
-      const timestamp = new Date().getTime();
-      const url = `/api/sessions?startDate=${formattedStartDate}&endDate=${formattedEndDate}&_t=${timestamp}`;
-      
-      console.log('Fetching sessions from URL:', url);
       const response = await fetch(url);
-      
-      console.log('Response status:', response.status);
+      console.log('API Response status:', response.status);
       
       if (!response.ok) {
-        throw new Error(`Failed to fetch sessions: ${response.status} ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('API Error:', response.status, errorText);
+        throw new Error(`API error ${response.status}: ${errorText}`);
       }
-      
+
       const data = await response.json();
-      console.log('Raw API response:', data);
+      console.log('API Response data:', data);
       
-      // Handle different response formats
-      let sessionsArray = [];
-      if (Array.isArray(data)) {
-        console.log('Response is an array');
-        sessionsArray = data;
-      } else if (data.sessions && Array.isArray(data.sessions)) {
-        console.log('Response has sessions property with array');
-        sessionsArray = data.sessions;
-      } else {
-        console.log('Unexpected response format:', typeof data, Object.keys(data));
-        // Try to extract sessions from any property that might be an array
-        for (const key in data) {
-          if (Array.isArray(data[key])) {
-            console.log(`Found array in property: ${key} with ${data[key].length} items`);
-            if (data[key].length > 0 && data[key][0].startTime) {
-              console.log('This array appears to contain sessions');
-              sessionsArray = data[key];
-              break;
-            }
-          }
-        }
-      }
+      // Handle both formats - direct array or sessions property
+      const sessionsArray = Array.isArray(data) ? data : data.sessions || [];
+      console.log('Processed sessions array:', sessionsArray);
       
-      console.log(`Processed ${sessionsArray.length} sessions from API`);
-      
-      // Log a sample session if available
       if (sessionsArray.length > 0) {
-        console.log('Sample session:', sessionsArray[0]);
+        console.log('Sample session object:', sessionsArray[0]);
+        // Check if Client or client is present
+        if (sessionsArray[0].Client) {
+          console.log('Using Client (uppercase) property');
+        } else if (sessionsArray[0].client) {
+          console.log('Using client (lowercase) property');
+        } else {
+          console.log('WARNING: No client data found in session objects');
+        }
+      } else {
+        console.log('No sessions returned from API');
       }
-      
+
       setSessions(sessionsArray);
 
       // Set upcoming appointments for the sidebar
@@ -111,7 +111,8 @@ export default function AppointmentCalendar({ onSessionClick, onDateSelect }) {
       setUpcomingAppointments(upcoming);
     } catch (error) {
       console.error('Error fetching sessions:', error);
-      setError(`Error fetching sessions: ${error.message}`);
+      // Show the exact error in browser console
+      console.error('Error details:', error.message);
       setSessions([]);
     } finally {
       setIsLoading(false);

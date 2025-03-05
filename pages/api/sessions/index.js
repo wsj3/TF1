@@ -59,16 +59,20 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       // Extract query parameters
-      const { startDate, endDate, status, clientId } = req.query;
+      const { startDate, endDate, start, end, status, clientId } = req.query;
       
       // Set up filter conditions based on request parameters
       let where = { therapistId: mappedTherapistId };
       
-      // Add date range filter if provided
-      if (startDate && endDate) {
+      // Add date range filter if provided (support both naming styles)
+      const startDateValue = start || startDate;
+      const endDateValue = end || endDate;
+      
+      if (startDateValue && endDateValue) {
+        console.log(`Using date range: ${startDateValue} to ${endDateValue}`);
         where.startTime = {
-          gte: new Date(startDate),
-          lte: new Date(endDate),
+          gte: new Date(startDateValue),
+          lte: new Date(endDateValue),
         };
       }
       

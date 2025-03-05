@@ -66,6 +66,17 @@ export default function AppointmentCalendar({ onSessionClick, onDateSelect }) {
       const start = startDate.toISOString();
       const end = endDate.toISOString();
       
+      // Test the basic test endpoint first
+      try {
+        console.log('Testing basic API connectivity...');
+        const testResponse = await fetch('/api/test');
+        const testData = await testResponse.json();
+        console.log('Test API response:', testData);
+      } catch (testError) {
+        console.error('Test API error:', testError);
+      }
+      
+      // Use the absolute path starting with /api
       const url = `/api/sessions?start=${start}&end=${end}`;
       console.log('API URL:', url);
       

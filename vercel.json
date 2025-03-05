@@ -35,7 +35,7 @@
     { "src": "/api/db-test", "dest": "/api/db-test" },
     { "src": "/api/schema-info", "dest": "/api/schema-info" },
     { "src": "/api/status", "dest": "/api/status" },
-    { "src": "/api/sessions", "dest": "/api/sessions" },
-    { "src": "/api/sessions/(.*)", "dest": "/api/sessions/[id].js" }
+    { "src": "/api/sessions", "dest": "/api/sessions/index.js" },
+    { "src": "/api/sessions/(.*)", "dest": "/api/sessions/$1" }
   ]
 } 

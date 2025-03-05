@@ -5,9 +5,24 @@ import jwt from 'jsonwebtoken';
 const prisma = new PrismaClient();
 
 export default async function handler(req, res) {
+  console.log('*** API SESSIONS HANDLER CALLED ***');
+  console.log('Request method:', req.method);
+  console.log('Request query params:', req.query);
+  console.log('Headers:', JSON.stringify(req.headers, null, 2));
+  
+  // Check for cookies directly 
+  const rawCookies = req.headers.cookie;
+  console.log('Raw cookie header:', rawCookies);
+  
   // Check authentication using custom auth system
   const jwtSecret = process.env.JWT_SECRET || 'default-development-secret';
   const cookieName = process.env.AUTH_COOKIE_NAME || 'tf-auth-token';
+  
+  // Log environment variables for debugging
+  console.log('Environment variables:');
+  console.log('- NODE_ENV:', process.env.NODE_ENV);
+  console.log('- JWT_SECRET exists:', !!process.env.JWT_SECRET);
+  console.log('- AUTH_COOKIE_NAME:', process.env.AUTH_COOKIE_NAME);
   
   // Parse cookies from request
   const cookies = parse(req.headers.cookie || '');
@@ -15,11 +30,11 @@ export default async function handler(req, res) {
   console.log('Available cookies:', allCookieNames);
   
   // Try different cookie names for auth token
-  let token = cookies[cookieName] || cookies['auth_token'];
+  let token = cookies[cookieName] || cookies['auth_token'] || cookies['tf-auth-token'];
   
   if (!token) {
     console.log('No auth token found in cookies');
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'Unauthorized - No valid auth token found' });
   }
   
   // Verify token
@@ -30,16 +45,26 @@ export default async function handler(req, res) {
     // For JWT token format
     if (token.includes('.')) {
       console.log('Using JWT token format');
-      const userData = jwt.verify(token, jwtSecret);
-      console.log('JWT token data:', userData);
-      therapistId = userData.id;
+      try {
+        const userData = jwt.verify(token, jwtSecret);
+        console.log('JWT token data:', userData);
+        therapistId = userData.id;
+      } catch (jwtError) {
+        console.error('JWT verification error:', jwtError);
+        return res.status(401).json({ error: 'Invalid JWT token', details: jwtError.message });
+      }
     } 
     // For custom base64 token format (legacy)
     else {
       console.log('Using base64 token format');
-      const userData = JSON.parse(Buffer.from(token, 'base64').toString());
-      console.log('Base64 token data:', userData);
-      therapistId = userData.id;
+      try {
+        const userData = JSON.parse(Buffer.from(token, 'base64').toString());
+        console.log('Base64 token data:', userData);
+        therapistId = userData.id;
+      } catch (base64Error) {
+        console.error('Base64 token parsing error:', base64Error);
+        return res.status(401).json({ error: 'Invalid token format', details: base64Error.message });
+      }
     }
     
     if (!therapistId) {
@@ -53,7 +78,7 @@ export default async function handler(req, res) {
     console.log('Mapped therapistId for database query:', mappedTherapistId);
   } catch (error) {
     console.error('Authentication error:', error);
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: 'Unauthorized - ' + error.message });
   }
 
   if (req.method === 'GET') {

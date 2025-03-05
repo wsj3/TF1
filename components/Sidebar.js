@@ -10,6 +10,13 @@ export default function Sidebar() {
     { name: 'Tasks', href: '/tasks', icon: 'task' },
     { name: 'Clients', href: '/clients', icon: 'user' },
     { name: 'Appointments', href: '/appointments', icon: 'calendar' },
+    { 
+      name: 'Appointments (New)', 
+      href: '/appointments2?t=' + Date.now(), 
+      icon: 'calendar',
+      highlight: true,
+      badge: 'v2'
+    },
     { name: 'Sessions', href: '/sessions', icon: 'chat' },
     { name: 'Diagnosis', href: '/diagnosis', icon: 'diagnosis' },
     { name: 'Billing', href: '/billing', icon: 'billing' },
@@ -29,18 +36,24 @@ export default function Sidebar() {
       
       <nav className="mt-5 px-2 space-y-1">
         {navigation.map((item) => {
-          const isActive = router.pathname === item.href;
+          const isActive = router.pathname === item.href.split('?')[0];
           return (
             <Link 
               href={item.href} 
               key={item.name}
               className={`
                 group flex items-center px-2 py-2 text-base font-medium rounded-md
+                ${item.highlight ? 'bg-purple-900 border border-purple-700 hover:bg-purple-800' : ''}
                 ${isActive ? 'bg-gray-800 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}
               `}
             >
               <span className="mr-4">{getIcon(item.icon, isActive)}</span>
               {item.name}
+              {item.badge && (
+                <span className="ml-auto text-xs bg-green-700 text-white px-1 rounded">
+                  {item.badge}
+                </span>
+              )}
             </Link>
           );
         })}

@@ -4,7 +4,8 @@ import jwt from 'jsonwebtoken';
 
 // Mock user database - In production, use your actual database
 const users = [
-  { id: '1', email: 'demo@therapistsfriend.com', password: 'demo123', name: 'Demo User', role: 'therapist' }
+  { id: 'demo-user-id', email: 'demo@therapistsfriend.com', password: 'demo123', name: 'Demo User', role: 'THERAPIST' },
+  { id: '1', email: 'demo@example.com', password: 'password', name: 'Demo User', role: 'THERAPIST' }
 ];
 
 export default async function handler(req, res) {
@@ -16,10 +17,13 @@ export default async function handler(req, res) {
   try {
     const { email, password } = req.body;
 
+    console.log(`Login attempt for email: ${email}`);
+    
     // Find user with matching email and password
     const user = users.find(u => u.email === email && u.password === password);
 
     if (!user) {
+      console.log(`Invalid credentials for email: ${email}`);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
@@ -41,6 +45,7 @@ export default async function handler(req, res) {
       env: process.env.NODE_ENV,
       cookieName,
       hasJwtSecret: !!process.env.JWT_SECRET,
+      jwtSecretFirstChars: jwtSecret.substring(0, 5) + '...',
       isProduction,
       isDevelopment,
       host,
@@ -76,6 +81,7 @@ export default async function handler(req, res) {
 
     // Set HTTP cookie
     const cookie = serialize(cookieName, token, cookieOptions);
+    console.log('Login successful for:', email);
 
     // Set cookie header
     res.setHeader('Set-Cookie', cookie);
@@ -89,6 +95,6 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('Login error:', error);
-    return res.status(500).json({ error: 'Authentication failed' });
+    return res.status(500).json({ error: 'Authentication failed', details: error.message });
   }
 } 

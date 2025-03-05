@@ -18,13 +18,13 @@ export default function SimpleSignIn() {
 
     try {
       // Use our custom login function
-      const result = await login(email, password);
+      const success = await login(email, password);
       
-      if (result.success) {
+      if (success) {
         // Navigate to dashboard on success
         router.push('/dashboard');
       } else {
-        setError(result.error || 'Login failed');
+        setError('Login failed. Please check your credentials.');
       }
     } catch (err) {
       console.error('Sign in error:', err);

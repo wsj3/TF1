@@ -4,7 +4,7 @@ import { useAuth } from '../../utils/auth';
 import Layout from '../../components/Layout';
 
 // Add deployment timestamp for verification
-const DEPLOY_VERSION = 'Auto-deployed: ' + new Date().toISOString();
+const DEPLOY_VERSION = 'Git-to-Staging Test: ' + new Date().toISOString();
 
 export default function SignIn() {
   const [email, setEmail] = useState('');

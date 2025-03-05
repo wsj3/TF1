@@ -7,7 +7,7 @@
   "ignoreCommand": null,
   "build": {
     "env": {
-      "CACHE_KEY": "reset-20241002-6",
+      "CACHE_KEY": "reset-20241002-7",
       "NEXT_TELEMETRY_DISABLED": "1",
       "NODE_ENV": "production"
     }
@@ -29,8 +29,8 @@
   },
   "routes": [
     {
-      "src": "/appointments",
-      "dest": "/appointments"
+      "src": "/debug-appointments",
+      "dest": "/debug-appointments"
     },
     {
       "src": "/api/sessions",

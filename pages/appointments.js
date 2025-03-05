@@ -9,10 +9,10 @@ import Head from 'next/head';
 function Appointments() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const [debugMode, setDebugMode] = useState(false);
+  const [debugMode, setDebugMode] = useState(true); // Always show debug initially
   const [apiResponse, setApiResponse] = useState(null);
   const [loadingTest, setLoadingTest] = useState(false);
-  const [useDemo, setUseDemo] = useState(false);
+  const [useDemo, setUseDemo] = useState(true); // Always use demo mode by default
 
   // Enable demo mode on staging automatically
   useEffect(() => {
@@ -32,6 +32,9 @@ function Appointments() {
         query: { ...router.query, demo: 'true', t: Date.now() }
       }, undefined, { shallow: true });
     }
+    
+    // Run API test automatically on load
+    testApiConnection();
   }, [router]);
 
   // Test API connectivity
@@ -71,7 +74,7 @@ function Appointments() {
       
       <div className="p-6">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-white">Appointments - Rebuilt March 5, 2025</h1>
+          <h1 className="text-2xl font-bold text-white">Appointments</h1>
           
           <div className="flex space-x-2">
             <button
@@ -112,6 +115,7 @@ function Appointments() {
                   <p>Query: {JSON.stringify(router.query)}</p>
                   <p>User: {user ? user.email : 'Not logged in'}</p>
                   <p>Mode: {useDemo ? 'Demo Data' : 'API Data'}</p>
+                  <p>Updated: March 5, 2025</p>
                 </div>
               </div>
               

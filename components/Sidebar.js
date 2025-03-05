@@ -9,10 +9,9 @@ export default function Sidebar() {
     { name: 'Dashboard', href: '/dashboard', icon: 'home' },
     { name: 'Tasks', href: '/tasks', icon: 'task' },
     { name: 'Clients', href: '/clients', icon: 'user' },
-    { name: 'Appointments', href: '/appointments', icon: 'calendar' },
     { 
-      name: 'Appointments (New)', 
-      href: '/appointments2?t=' + Date.now(), 
+      name: 'Appointments', 
+      href: '/appointments?t=' + Date.now(), 
       icon: 'calendar',
       highlight: true,
       badge: 'v2'

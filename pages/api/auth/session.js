@@ -17,24 +17,37 @@ export default async function handler(req, res) {
     const cookies = parse(req.headers.cookie || '');
     const token = cookies[cookieName];
     
+    // Debug info
+    console.log('Session check:', {
+      hasCookie: !!req.headers.cookie,
+      cookieNames: Object.keys(cookies),
+      hasToken: !!token,
+      host: req.headers.host
+    });
+    
     if (!token) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
     
-    // Verify token
-    const userData = jwt.verify(token, jwtSecret);
-    
-    // Return user data without sensitive information
-    return res.status(200).json({ 
-      user: {
-        id: userData.id,
-        email: userData.email,
-        name: userData.name,
-        role: userData.role
-      } 
-    });
+    try {
+      // Verify token
+      const userData = jwt.verify(token, jwtSecret);
+      
+      // Return user data without sensitive information
+      return res.status(200).json({ 
+        user: {
+          id: userData.id,
+          email: userData.email,
+          name: userData.name,
+          role: userData.role
+        } 
+      });
+    } catch (tokenError) {
+      console.error('Token verification failed:', tokenError);
+      return res.status(401).json({ error: 'Invalid token' });
+    }
   } catch (error) {
     console.error('Session error:', error);
-    return res.status(401).json({ error: 'Invalid session' });
+    return res.status(500).json({ error: 'Failed to get session' });
   }
 } 

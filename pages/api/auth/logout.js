@@ -11,16 +11,18 @@ export default async function handler(req, res) {
     const cookieName = process.env.AUTH_COOKIE_NAME || 'tf-auth-token';
     const isProduction = process.env.NODE_ENV === 'production';
     
-    // Determine if we're on Vercel based on headers or environment
-    const isVercel = req.headers.host?.includes('vercel.app') || 
+    // Determine environment type
+    const host = req.headers.host || '';
+    const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+    const isVercel = host.includes('vercel.app') || 
                     process.env.VERCEL === '1' ||
                     !!process.env.VERCEL_URL;
     
     // Clear the auth cookie by setting an expired cookie
     const cookie = serialize(cookieName, '', {
       httpOnly: true,
-      secure: isProduction || isVercel,
-      sameSite: isVercel ? 'none' : (isProduction ? 'strict' : 'lax'),
+      secure: !isLocalhost && (isProduction || isVercel),
+      sameSite: isVercel ? 'none' : (isLocalhost ? 'lax' : 'strict'),
       maxAge: -1, // Expire immediately
       path: '/'
     });

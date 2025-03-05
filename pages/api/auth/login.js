@@ -29,6 +29,13 @@ export default async function handler(req, res) {
     const isProduction = process.env.NODE_ENV === 'production';
     const isDevelopment = process.env.NODE_ENV === 'development';
     
+    // Determine environment type
+    const host = req.headers.host || '';
+    const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+    const isVercel = host.includes('vercel.app') || 
+                    process.env.VERCEL === '1' ||
+                    !!process.env.VERCEL_URL;
+    
     // Add request host info to help debug
     console.log('Auth environment:', { 
       env: process.env.NODE_ENV,
@@ -36,8 +43,10 @@ export default async function handler(req, res) {
       hasJwtSecret: !!process.env.JWT_SECRET,
       isProduction,
       isDevelopment,
-      host: req.headers.host,
-      origin: req.headers.origin
+      host,
+      origin: req.headers.origin,
+      isLocalhost,
+      isVercel
     });
 
     // Create JWT token
@@ -52,21 +61,18 @@ export default async function handler(req, res) {
       { expiresIn: '1d' }
     );
 
-    // Determine if we're on Vercel based on headers or environment
-    const isVercel = req.headers.host?.includes('vercel.app') || 
-                    process.env.VERCEL === '1' ||
-                    !!process.env.VERCEL_URL;
-
     // Set cookie options based on environment
     const cookieOptions = {
       httpOnly: true,
-      // Use secure cookies except in local development
-      secure: isProduction || isVercel,
-      // Use lax for Vercel previews to allow redirects and iframe embedding
-      sameSite: isVercel ? 'none' : (isProduction ? 'strict' : 'lax'),
+      // For local development, don't use secure cookies
+      secure: !isLocalhost && (isProduction || isVercel),
+      // Use appropriate SameSite setting for the environment
+      sameSite: isVercel ? 'none' : (isLocalhost ? 'lax' : 'strict'),
       maxAge: 86400, // 1 day in seconds
       path: '/'
     };
+
+    console.log('Cookie options:', cookieOptions);
 
     // Set HTTP cookie
     const cookie = serialize(cookieName, token, cookieOptions);

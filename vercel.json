@@ -7,7 +7,7 @@
   "ignoreCommand": null,
   "build": {
     "env": {
-      "CACHE_KEY": "reset-20241002-9",
+      "CACHE_KEY": "reset-20241002-10",
       "NEXT_TELEMETRY_DISABLED": "1",
       "NODE_ENV": "production"
     }
@@ -28,6 +28,13 @@
     }
   },
   "routes": [
+    {
+      "src": "/tools/fix",
+      "dest": "/tools/fix",
+      "headers": {
+        "cache-control": "no-cache, no-store, must-revalidate"
+      }
+    },
     {
       "src": "/debug-appointments",
       "dest": "/debug-appointments"

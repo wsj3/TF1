@@ -16,46 +16,84 @@ function Appointments() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadingError, setLoadingError] = useState(null);
 
-  // Enable demo mode on staging automatically and handle loading timeout
+  // Reset state on route change or when path includes appointments
   useEffect(() => {
-    // Check if we're on staging/vercel
-    const isStaging = typeof window !== 'undefined' && 
-                     (window.location.hostname.includes('staging') || 
-                      window.location.hostname.includes('vercel.app'));
+    // Function to initialize or reset the page state
+    const initPage = () => {
+      console.log('Appointments page: Initializing/Resetting state');
+      setIsLoading(true);
+      setLoadingError(null);
+      
+      // Check if we're on staging/vercel
+      const isStaging = typeof window !== 'undefined' && 
+                       (window.location.hostname.includes('staging') || 
+                        window.location.hostname.includes('vercel.app'));
+      
+      // Enable demo mode for staging or via query parameter
+      const shouldUseDemo = isStaging || router.query.demo === 'true';
+      setUseDemo(shouldUseDemo);
+      
+      if (isStaging && !router.query.demo) {
+        console.log('Staging environment detected, enabling demo mode');
+        router.push({
+          pathname: router.pathname,
+          query: { ...router.query, demo: 'true', t: Date.now() }
+        }, undefined, { shallow: true });
+      }
+      
+      // Run API test
+      testApiConnection();
+    };
     
-    // Enable demo mode for staging or via query parameter
-    const shouldUseDemo = isStaging || router.query.demo === 'true';
-    setUseDemo(shouldUseDemo);
+    // Initialize on first load
+    initPage();
     
-    if (isStaging && !router.query.demo) {
-      console.log('Staging environment detected, enabling demo mode');
-      router.push({
-        pathname: router.pathname,
-        query: { ...router.query, demo: 'true', t: Date.now() }
-      }, undefined, { shallow: true });
-    }
+    // Set up route change handlers to reinitialize on navigation
+    const handleRouteChangeStart = (url) => {
+      if (url.includes('/appointments') && !url.includes('/appointments/')) {
+        console.log('Appointments navigation detected, resetting state');
+        setIsLoading(true);
+      }
+    };
     
-    // Run API test automatically on load
-    testApiConnection();
-
+    const handleRouteChangeComplete = (url) => {
+      if (url.includes('/appointments') && !url.includes('/appointments/')) {
+        console.log('Appointments navigation completed, refreshing data');
+        initPage();
+      }
+    };
+    
+    // Listen for route changes
+    router.events.on('routeChangeStart', handleRouteChangeStart);
+    router.events.on('routeChangeComplete', handleRouteChangeComplete);
+    
     // Set a loading timeout to ensure UI doesn't stay in loading state indefinitely
     const loadingTimeout = setTimeout(() => {
-      setIsLoading(false);
-      console.log('Loading timeout reached, forcing calendar display');
-      if (!apiResponse) {
-        setLoadingError('Loading timed out. Displaying demo calendar instead.');
-        setUseDemo(true);
+      if (isLoading) {
+        console.log('Loading timeout reached, forcing calendar display');
+        setIsLoading(false);
+        if (!apiResponse) {
+          setLoadingError('Loading timed out. Displaying demo calendar instead.');
+          setUseDemo(true);
+        }
       }
     }, 3000); // 3 second timeout
-
-    return () => clearTimeout(loadingTimeout);
-  }, [router]);
+    
+    return () => {
+      // Clean up all event listeners and timeouts
+      clearTimeout(loadingTimeout);
+      router.events.off('routeChangeStart', handleRouteChangeStart);
+      router.events.off('routeChangeComplete', handleRouteChangeComplete);
+    };
+  }, [router.pathname, router.query]); // Re-run when pathname or query changes
 
   // Test API connectivity
   const testApiConnection = async () => {
     setLoadingTest(true);
     try {
-      const response = await fetch('/api/sessions?demo=true');
+      // Force a timestamp to bypass cache
+      const timestamp = new Date().getTime();
+      const response = await fetch(`/api/sessions?demo=true&t=${timestamp}`);
       const status = response.status;
       let data;
       
@@ -137,6 +175,20 @@ function Appointments() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
               Refresh
+            </button>
+            
+            <button
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  window.location.href = `/appointments?t=${Date.now()}`;
+                }
+              }}
+              className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Hard Reload
             </button>
           </div>
         </div>
@@ -226,6 +278,11 @@ function Appointments() {
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mb-4"></div>
                 <p className="text-gray-300 text-lg">Loading appointments...</p>
                 <p className="text-gray-400 text-sm mt-2">This shouldn't take long. If it does, the calendar will automatically switch to demo mode.</p>
+                <p className="text-gray-400 text-sm mt-1">
+                  If you see this message for more than 3 seconds, try clicking the 
+                  <span className="text-red-400 font-medium"> Hard Reload </span> 
+                  button above.
+                </p>
               </div>
             </div>
           ) : (

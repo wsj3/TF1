@@ -11,16 +11,21 @@ export default function Sidebar() {
     { name: 'Clients', href: '/clients', icon: 'user' },
     { 
       name: 'Appointments', 
-      href: '/appointments?t=' + Date.now(), 
+      href: '#',
       icon: 'calendar',
       highlight: true,
-      badge: 'v2'
+      customHandler: true
     },
     { name: 'Sessions', href: '/sessions', icon: 'chat' },
     { name: 'Diagnosis', href: '/diagnosis', icon: 'diagnosis' },
     { name: 'Billing', href: '/billing', icon: 'billing' },
     { name: 'Settings', href: '/settings', icon: 'settings' },
   ];
+
+  const handleAppointmentsClick = (e) => {
+    e.preventDefault();
+    router.push(`/appointments?t=${Date.now()}&reset=true`);
+  };
 
   return (
     <div className="fixed left-0 top-0 bottom-0 w-64 bg-gray-900 border-r border-gray-800">
@@ -36,6 +41,30 @@ export default function Sidebar() {
       <nav className="mt-5 px-2 space-y-1">
         {navigation.map((item) => {
           const isActive = router.pathname === item.href.split('?')[0];
+          
+          if (item.customHandler) {
+            return (
+              <a 
+                href="#"
+                key={item.name}
+                onClick={handleAppointmentsClick}
+                className={`
+                  group flex items-center px-2 py-2 text-base font-medium rounded-md
+                  ${item.highlight ? 'bg-purple-900 border border-purple-700 hover:bg-purple-800' : ''}
+                  ${router.pathname === '/appointments' ? 'bg-gray-800 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}
+                `}
+              >
+                <span className="mr-4">{getIcon(item.icon, router.pathname === '/appointments')}</span>
+                {item.name}
+                {item.badge && (
+                  <span className="ml-auto text-xs bg-green-700 text-white px-1 rounded">
+                    {item.badge}
+                  </span>
+                )}
+              </a>
+            );
+          }
+          
           return (
             <Link 
               href={item.href} 

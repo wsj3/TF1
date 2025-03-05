@@ -23,188 +23,161 @@ export default function AppointmentCalendar({ onSessionClick, onDateSelect }) {
   const [error, setError] = useState(null);
   const [upcomingAppointments, setUpcomingAppointments] = useState([]);
   const calendarRef = useRef(null);
+  // Add debug state for troubleshooting
+  const [debugInfo, setDebugInfo] = useState({ visible: false, data: null });
+
+  // Toggle debug information display
+  const toggleDebugInfo = () => {
+    setDebugInfo(prev => ({ ...prev, visible: !prev.visible }));
+  };
 
   // Initial data fetch on component mount
   useEffect(() => {
     if (user) {
-      console.log('User authenticated, fetching sessions');
       fetchSessions(new Date());
-    } else {
-      console.log('No user data available, cannot fetch sessions');
-      setIsLoading(false);
     }
   }, [user]);
 
-  // Add a useEffect to log sessions whenever they change
-  useEffect(() => {
-    console.log('SESSIONS STATE CHANGED:', sessions);
-    console.log('Number of sessions:', sessions.length);
-    
-    // Force a refresh of the calendar when sessions change
-    if (calendarRef.current) {
-      const calendarApi = calendarRef.current.getApi();
-      calendarApi.refetchEvents();
-      console.log('Calendar events refetched');
-    }
-  }, [sessions]);
-
-  // Fetch sessions for a date range
+  // Fetch sessions based on date
   const fetchSessions = async (date) => {
+    if (!user) return;
+
+    setIsLoading(true);
+    setError(null);
+    
     try {
-      setIsLoading(true);
-      const startDate = new Date(date);
-      startDate.setDate(startDate.getDate() - 15); // Fetch two weeks prior
-
-      const endDate = new Date(date);
-      endDate.setDate(endDate.getDate() + 45); // Fetch 45 days ahead
-
-      console.log('Fetching sessions with date range:', {
-        start: startDate.toISOString(),
-        end: endDate.toISOString()
-      });
-
-      const start = startDate.toISOString();
-      const end = endDate.toISOString();
+      const start = new Date(date.getFullYear(), date.getMonth(), 1);
+      const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
       
-      // Test the basic test endpoint first
-      try {
-        console.log('Testing basic API connectivity...');
-        const testResponse = await fetch('/api/test');
-        const testData = await testResponse.json();
-        console.log('Test API response:', testData);
-      } catch (testError) {
-        console.error('Test API error:', testError);
-      }
+      const startStr = format(start, 'yyyy-MM-dd');
+      const endStr = format(end, 'yyyy-MM-dd');
       
-      // Use the absolute path starting with /api
-      const url = `/api/sessions?start=${start}&end=${end}`;
-      console.log('API URL:', url);
+      console.log(`Fetching sessions from ${startStr} to ${endStr}`);
       
-      const response = await fetch(url);
+      // Add demo mode query parameter for testing without authentication
+      const isDemoMode = router.query.demo === 'true';
+      const queryParams = new URLSearchParams({
+        start: startStr,
+        end: endStr,
+        ...(isDemoMode && { demo: 'true' }),
+      }).toString();
+      
+      const response = await fetch(`/api/sessions?${queryParams}`);
+      
       console.log('API Response status:', response.status);
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('API Error:', response.status, errorText);
-        throw new Error(`API error ${response.status}: ${errorText}`);
+        console.error('Error response from API:', errorText);
+        throw new Error(`API error: ${response.status} ${errorText}`);
       }
-
+      
       const data = await response.json();
-      console.log('API Response data:', data);
+      console.log('Sessions data:', data);
       
-      // Handle both formats - direct array or sessions property
+      // Store response for debugging
+      setDebugInfo(prev => ({ ...prev, data }));
+      
+      // Handle both response formats - array or {sessions: []}
       const sessionsArray = Array.isArray(data) ? data : data.sessions || [];
-      console.log('Processed sessions array:', sessionsArray);
+      console.log('Sessions array:', sessionsArray);
       
-      if (sessionsArray.length > 0) {
-        console.log('Sample session object:', sessionsArray[0]);
-        // Check if Client or client is present
-        if (sessionsArray[0].Client) {
-          console.log('Using Client (uppercase) property');
-        } else if (sessionsArray[0].client) {
-          console.log('Using client (lowercase) property');
-        } else {
-          console.log('WARNING: No client data found in session objects');
-        }
-      } else {
-        console.log('No sessions returned from API');
-      }
-
       setSessions(sessionsArray);
-
-      // Set upcoming appointments for the sidebar
-      const now = new Date();
+      
+      // Extract upcoming appointments for sidebar
       const upcoming = sessionsArray
-        .filter(session => new Date(session.startTime) > now)
+        .filter(session => new Date(session.startTime) > new Date() && session.status === 'SCHEDULED')
         .sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
-        .slice(0, 5); // Get only next 5 appointments
+        .slice(0, 5);
       
       setUpcomingAppointments(upcoming);
+      setIsLoading(false);
     } catch (error) {
       console.error('Error fetching sessions:', error);
-      // Show the exact error in browser console
-      console.error('Error details:', error.message);
-      setSessions([]);
-    } finally {
+      setError(error.message);
       setIsLoading(false);
+      
+      // Store error info for debugging
+      setDebugInfo(prev => ({ 
+        ...prev, 
+        error: {
+          message: error.message,
+          stack: error.stack,
+        }
+      }));
     }
   };
 
-  // Handle calendar date range changes
+  // Fetch sessions when calendar dates change
   const handleDatesSet = async (dateInfo) => {
-    console.log('Calendar dates set:', dateInfo.startStr, 'to', dateInfo.endStr);
-    fetchSessions(dateInfo.start);
+    const calendarDate = new Date(dateInfo.start);
+    fetchSessions(calendarDate);
   };
 
-  // Transform sessions to calendar events
+  // Format event data for the calendar
   const getEvents = () => {
-    if (!sessions || sessions.length === 0) {
-      return [];
-    }
-    
-    console.log(`Transforming ${sessions.length} sessions into calendar events`);
-    
-    return sessions.map((session) => {
-      // Make sure we have all required properties
-      if (!session.id || !session.startTime || !session.endTime) {
-        console.warn('Session missing required properties:', session);
-        return null;
-      }
+    return sessions.map(session => {
+      // Handle both capitalization cases for clients
+      const client = session.Client || session.client || {};
       
-      // Handle both capitalization cases (client vs Client)
-      const clientData = session.Client || session.client;
-      const clientName = clientData
-        ? `${clientData.firstName || ''} ${clientData.lastName || ''}`.trim() 
-        : 'No Client';
-      
+      const clientName = client 
+        ? `${client.firstName || ''} ${client.lastName || ''}`.trim() 
+        : 'No Client Name';
+
       return {
         id: session.id,
         title: clientName,
-        start: new Date(session.startTime),
-        end: new Date(session.endTime),
-        backgroundColor: statusColors[session.status] || '#999',
-        borderColor: statusColors[session.status] || '#999',
-        allDay: false,
-        extendedProps: { session },
+        start: session.startTime,
+        end: session.endTime,
+        backgroundColor: statusColors[session.status] || 'gray',
+        borderColor: statusColors[session.status] || 'gray',
+        extendedProps: {
+          status: session.status,
+          clientId: session.clientId,
+          client,
+          notes: session.notes || '',
+        }
       };
-    }).filter(Boolean); // Remove any null events
+    });
   };
 
-  // Handle event click (appointment selection)
+  // Handle event click
   const handleEventClick = (clickInfo) => {
     if (onSessionClick) {
-      onSessionClick(clickInfo.event.id);
+      // Get the session data from the event
+      const sessionId = clickInfo.event.id;
+      const session = sessions.find(s => s.id === sessionId);
+      
+      if (session) {
+        onSessionClick(session);
+      }
     } else {
       router.push(`/sessions/${clickInfo.event.id}`);
     }
   };
 
-  // Handle date selection (for new appointment creation)
+  // Handle date select
   const handleDateSelect = (selectInfo) => {
     if (onDateSelect) {
-      onDateSelect(selectInfo);
+      onDateSelect(selectInfo.start, selectInfo.end);
     } else {
       // Default date selection behavior
       selectInfo.view.calendar.unselect(); // clear date selection
       
-      // Open appointment creation dialog in a more modern way
-      const startTime = new Date(selectInfo.startStr);
-      const endTime = new Date(selectInfo.endStr);
-      
-      // Could replace with a modal component instead of alert
-      if (confirm(`Create a new appointment from ${format(startTime, 'h:mm aa')} to ${format(endTime, 'h:mm aa')}?`)) {
-        router.push(`/appointments/new?start=${selectInfo.startStr}&end=${selectInfo.endStr}`);
-      }
+      // Open appointment creation form (without dialog component)
+      router.push(`/appointments/new?start=${selectInfo.startStr}&end=${selectInfo.endStr}`);
     }
   };
 
-  // Format time for the upcoming appointments sidebar
+  // Format appointment time for display
   const formatAppointmentTime = (dateTime) => {
-    return format(new Date(dateTime), 'h:mm aa');
+    if (!dateTime) return '';
+    return format(new Date(dateTime), 'h:mm a');
   };
 
-  // Format date for the upcoming appointments sidebar
+  // Format appointment date for display
   const formatAppointmentDate = (dateTime) => {
+    if (!dateTime) return '';
     return format(new Date(dateTime), 'MMMM d, yyyy');
   };
 
@@ -214,7 +187,7 @@ export default function AppointmentCalendar({ onSessionClick, onDateSelect }) {
       <div className="w-full md:w-64 bg-gray-800 p-4 flex flex-col">
         <h2 className="text-xl font-semibold mb-4 text-white">Appointments</h2>
         
-        {/* Navigation tabs - could be made functional */}
+        {/* Navigation tabs */}
         <div className="flex border-b border-gray-700 mb-4">
           <button className="py-2 px-4 text-blue-400 border-b-2 border-blue-400 font-medium">
             Upcoming
@@ -284,9 +257,55 @@ export default function AppointmentCalendar({ onSessionClick, onDateSelect }) {
       
       {/* Main calendar area */}
       <div className="flex-grow p-4 bg-gray-900">
-        {isLoading && <div className="text-center py-4 text-gray-300">Loading appointments...</div>}
-        {error && <div className="text-center py-4 text-red-400">{error}</div>}
+        {/* Error display */}
+        {error && (
+          <div className="bg-red-900 bg-opacity-50 border border-red-700 text-red-100 p-4 mb-4 rounded">
+            <p className="font-bold">Error</p>
+            <p>{error}</p>
+            <div className="flex mt-2">
+              <button 
+                onClick={() => fetchSessions(new Date())} 
+                className="mr-2 bg-red-700 hover:bg-red-800 text-white font-bold py-1 px-2 rounded"
+              >
+                Retry
+              </button>
+              <button 
+                onClick={toggleDebugInfo} 
+                className="bg-gray-700 hover:bg-gray-800 text-white font-bold py-1 px-2 rounded"
+              >
+                {debugInfo.visible ? 'Hide Debug Info' : 'Show Debug Info'}
+              </button>
+            </div>
+          </div>
+        )}
         
+        {/* Loading indicator */}
+        {isLoading && <div className="text-center py-4 text-gray-300">Loading appointments...</div>}
+        
+        {/* Debug information panel */}
+        {debugInfo.visible && (
+          <div className="fixed top-0 right-0 w-1/2 h-full bg-gray-800 shadow-md z-50 p-4 overflow-auto border-l border-gray-700">
+            <h3 className="text-lg font-bold mb-2 text-white">Debug Information</h3>
+            <button 
+              onClick={toggleDebugInfo} 
+              className="absolute top-2 right-2 bg-red-700 hover:bg-red-800 text-white font-bold py-1 px-2 rounded"
+            >
+              Close
+            </button>
+            <div className="bg-gray-900 p-4 rounded overflow-auto max-h-screen border border-gray-700">
+              <pre className="text-xs text-gray-300">{JSON.stringify(debugInfo, null, 2)}</pre>
+            </div>
+          </div>
+        )}
+        
+        {/* Demo mode indicator */}
+        {router.query.demo === 'true' && (
+          <div className="bg-yellow-800 bg-opacity-50 border border-yellow-700 text-yellow-100 p-2 mb-4 rounded">
+            DEMO MODE ACTIVE
+          </div>
+        )}
+        
+        {/* Calendar */}
         <div className="calendar-container bg-gray-800 rounded-lg p-4 h-full">
           <FullCalendar
             ref={calendarRef}
@@ -328,7 +347,7 @@ export default function AppointmentCalendar({ onSessionClick, onDateSelect }) {
           />
         </div>
       </div>
-      
+
       {/* Add custom styles for FullCalendar */}
       <style jsx global>{`
         /* Dark theme styling for calendar */

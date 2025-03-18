@@ -1,5 +1,6 @@
 # Git-based Deployment Script for Therapists Friend
 # This script pushes local code to git, which Digital Ocean will then pull from
+# Repository: https://github.com/wsj3/tf1
 
 Write-Host "====================================" -ForegroundColor Cyan
 Write-Host "  Git-based Staging Deployment Tool  " -ForegroundColor Cyan
@@ -10,6 +11,12 @@ Write-Host ""
 Write-Host "Checking current git branch..." -ForegroundColor Yellow
 $currentBranch = git rev-parse --abbrev-ref HEAD
 Write-Host "Currently on branch: $currentBranch" -ForegroundColor Green
+
+# Display repository information
+Write-Host "Repository: https://github.com/wsj3/tf1" -ForegroundColor Green
+Write-Host "Target branch for staging: staging" -ForegroundColor Green
+Write-Host "Target branch for production: main" -ForegroundColor Green
+Write-Host ""
 
 # Ask for confirmation
 Write-Host "This will deploy your LOCAL changes to the Git repository." -ForegroundColor Yellow

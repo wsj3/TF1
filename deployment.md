@@ -42,12 +42,23 @@ The project uses a Git-based deployment workflow:
 4. **How It Works**:
    - When code is pushed to the `staging` branch, Digital Ocean automatically deploys to staging
    - When code is pushed to the `main` branch, Digital Ocean automatically deploys to production
-   - Each environment has its own Digital Ocean droplet and URL
+   - Each environment has its own Digital Ocean App Platform configuration
+
+## Repository Information
+
+- **GitHub Repository**: https://github.com/wsj3/tf1
+- **Branches**:
+  - `main`: Used for production deployments
+  - `staging`: Used for staging deployments
 
 ## Environment Setup
 
 ### Local Development
-1. Clone the repository
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/wsj3/tf1.git
+   cd tf1
+   ```
 2. Copy `.env.local.example` to `.env.local`
 3. Configure local environment variables
 4. Run `npm install` to install dependencies
@@ -74,6 +85,23 @@ The project uses a Git-based deployment workflow:
    ```
    Digital Ocean will automatically detect the push to main and deploy the changes.
 
+## Digital Ocean App Platform Setup
+
+1. **GitHub Integration**:
+   - Digital Ocean App Platform is connected to the GitHub repository
+   - You must grant permission for Digital Ocean to access the repository in GitHub
+   - If you see "GitHub app does not have access to repo" error, click "Edit your GitHub permissions" to fix
+
+2. **Environment Configuration**:
+   - Staging environment: Uses the `staging` branch
+   - Production environment: Uses the `main` branch
+   - Both environments use the Dockerfile for building the application
+
+3. **Deployment Process**:
+   - Digital Ocean automatically detects changes to the connected branches
+   - Builds the application using the Dockerfile
+   - Deploys the application to the appropriate environment
+
 ## Troubleshooting
 
 ### Common Issues
@@ -98,6 +126,11 @@ The project uses a Git-based deployment workflow:
    - Use backup and restore processes only on server environments, not local development
    - Keep separate backups of your local development environment
 
+5. **GitHub Access Issues**
+   - If Digital Ocean cannot access the GitHub repository, check the GitHub app permissions
+   - Go to GitHub Settings > Applications > Authorized OAuth Apps > Digital Ocean
+   - Ensure the repository has been granted access
+
 ### Backup and Recovery
 1. Create database backup:
    ```powershell
@@ -109,4 +142,20 @@ The project uses a Git-based deployment workflow:
    ./backup.ps1 restore --backup-file <latest-backup>
    ```
    **WARNING: When restoring backups, ensure you are not overwriting your local development files.**
-   **Always restore to a clean environment or the intended server environment.** 
+   **Always restore to a clean environment or the intended server environment.**
+
+## Recent Changes
+
+### June 10, 2023
+- Repository migrated to https://github.com/wsj3/tf1
+- Successfully deployed to Digital Ocean staging environment
+- Updated deployment documentation
+
+### May 1, 2025
+- Migrated from NextAuth.js to custom authentication system
+- Updated environment variables for authentication
+- Added new deployment steps for auth system
+
+### March 2, 2025
+- Implemented authentication system
+- Updated deployment configuration for database connections 

@@ -1,0 +1,16 @@
+name: therapistsfriend
+services:
+- name: web
+  github:
+    branch: staging
+    deploy_on_push: true
+    repo: wsj3/TF1
+  build_command: chmod +x custom-build.sh && ./custom-build.sh
+  run_command: npm start
+  envs:
+  - key: NODE_ENV
+    value: production
+  - key: NPM_CONFIG_PRODUCTION
+    value: false
+  - key: NPM_CONFIG_PACKAGE_LOCK
+    value: false 

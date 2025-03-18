@@ -3,6 +3,9 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../utils/auth';
 
+// Version number
+const VERSION = 'V.009';
+
 export default function SimpleSignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -46,7 +49,7 @@ export default function SimpleSignIn() {
             Therapist's Friend
           </h2>
           <p className="mt-2 text-center text-sm text-gray-400">
-            Sign in to your account (Simple Auth)
+            Sign in to your account
           </p>
         </div>
 
@@ -102,20 +105,7 @@ export default function SimpleSignIn() {
         </form>
         
         <div className="text-center mt-4">
-          <p className="text-sm text-gray-400">
-            Demo credentials: demo@therapistsfriend.com / demo123
-          </p>
-          <p className="text-xs text-gray-500 mt-1">
-            Alternative: demo@example.com / password
-          </p>
-        </div>
-        
-        <div className="mt-6 p-4 border border-gray-700 rounded bg-gray-800 text-xs text-gray-400">
-          <div className="font-bold text-white">Simple Authentication</div>
-          <div className="mt-2">
-            <p>This is a simplified authentication system that does not use NextAuth.</p>
-            <p className="mt-1">It uses custom cookies and API endpoints for more reliable authentication.</p>
-          </div>
+          <p className="text-sm text-gray-400">{VERSION}</p>
         </div>
       </div>
     </div>

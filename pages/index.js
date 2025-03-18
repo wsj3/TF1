@@ -3,6 +3,9 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useAuth } from '../utils/auth';
 
+// Version number
+const VERSION = 'V.009';
+
 export default function Home() {
   const { user } = useAuth();
   
@@ -37,14 +40,8 @@ export default function Home() {
           </Link>
         </div>
         
-        <div className="mt-8 p-4 bg-gray-800 rounded-lg max-w-md">
-          <h2 className="text-xl font-bold text-white mb-2">Authentication System</h2>
-          <p className="text-gray-300 mb-4">
-            We've implemented a custom authentication system to improve reliability.
-          </p>
-          <div className="text-sm text-gray-400 mt-2">
-            <p>Demo credentials: demo@therapistsfriend.com / demo123</p>
-          </div>
+        <div className="text-center mt-8">
+          <p className="text-sm text-gray-400">{VERSION}</p>
         </div>
       </main>
 

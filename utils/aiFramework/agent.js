@@ -420,7 +420,17 @@ async function generateSessionSummary(params, options = {}) {
   }
 }
 
+// Create an aiAgent object to export functionality
+export const aiAgent = {
+  makeAIRequest,
+  executeAgentAction,
+  generateTreatmentSuggestion,
+  generateDiagnosisSuggestion,
+  generateSessionSummary
+};
+
 export default {
   makeAIRequest,
-  executeAgentAction
+  executeAgentAction,
+  aiAgent
 }; 

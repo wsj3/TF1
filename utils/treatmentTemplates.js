@@ -223,6 +223,15 @@ export const treatmentTemplates = [
 ];
 
 /**
+ * Get all treatment plan templates
+ * 
+ * @returns {Array} Array of all treatment templates
+ */
+export function getAllTemplates() {
+  return treatmentTemplates;
+}
+
+/**
  * Get a specific treatment plan template by ID
  * 
  * @param {string} templateId - The ID of the template to retrieve
@@ -250,6 +259,7 @@ export function searchTemplates(query) {
 
 export default {
   treatmentTemplates,
+  getAllTemplates,
   getTemplateById,
   searchTemplates
 }; 

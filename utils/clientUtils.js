@@ -227,6 +227,18 @@ export function getDemoClientById(clientId) {
   return demoClients.find(client => client.id === clientId) || null;
 }
 
+/**
+ * Get a client by ID (for both demo and real clients)
+ * 
+ * @param {string} clientId - The ID of the client to retrieve
+ * @returns {Promise<Object|null>} The client object or null if not found
+ */
+export function getClientById(clientId) {
+  // For now, this is just a wrapper for the demo function
+  // In a real app, this would query a database
+  return Promise.resolve(getDemoClientById(clientId));
+}
+
 export default {
   formatClientName,
   getClientFullName,
@@ -235,5 +247,6 @@ export default {
   getClientInitials,
   validateClientData,
   getDemoClients,
-  getDemoClientById
+  getDemoClientById,
+  getClientById
 }; 

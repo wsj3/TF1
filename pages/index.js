@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useAuth } from '../utils/auth';
 
 // Version number
-const VERSION = 'V.009';
+const VERSION = 'V.0.10';
 
 export default function Home() {
   const { user } = useAuth();

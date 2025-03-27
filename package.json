@@ -1,6 +1,6 @@
 {
   "name": "therapists-friend",
-  "version": "0.1.0",
+  "version": "1.0.10",
   "private": true,
   "engines": {
     "node": "18.x"
@@ -22,11 +22,15 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.4",
+    "@fortawesome/fontawesome-svg-core": "^6.7.2",
+    "@fortawesome/free-solid-svg-icons": "^6.7.2",
+    "@fortawesome/react-fontawesome": "^0.2.2",
     "@fullcalendar/core": "^6.1.15",
     "@fullcalendar/daygrid": "^6.1.15",
     "@fullcalendar/interaction": "^6.1.15",
     "@fullcalendar/react": "^6.1.15",
     "@fullcalendar/timegrid": "^6.1.15",
+    "@google-cloud/text-to-speech": "^5.0.0",
     "@google/generative-ai": "^0.1.3",
     "@headlessui/react": "^2.2.0",
     "@heroicons/react": "^2.2.0",
@@ -43,7 +47,7 @@
     "@types/three": "^0.161.2",
     "ai": "^4.1.21",
     "autoprefixer": "^10.4.17",
-    "axios": "^1.8.1",
+    "axios": "^1.8.3",
     "babel-plugin-module-resolver": "^5.0.0",
     "bcrypt": "^5.1.1",
     "bcryptjs": "^3.0.2",
@@ -55,12 +59,15 @@
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.7",
     "dotenv-expand": "^12.0.1",
+    "fullcalendar-scheduler": "^6.1.15",
     "googleapis": "^144.0.0",
+    "iron-session": "^8.0.4",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.474.0",
     "mongoose": "^8.9.5",
     "next": "14.2.24",
     "next-auth": "^4.24.7",
+    "node-fetch": "^2.7.0",
     "openai": "^3.3.0",
     "pg": "^8.13.3",
     "pino": "^8.16.2",
@@ -79,8 +86,7 @@
     "three": "^0.161.0",
     "typescript": "^5",
     "web-speech-cognitive-services": "^7.1.3",
-    "zod": "^3.22.4",
-    "@google-cloud/text-to-speech": "^5.0.0"
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "@faker-js/faker": "^9.4.0",

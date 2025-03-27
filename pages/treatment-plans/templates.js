@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
-import treatmentTemplates, { getAllTemplates } from '../../utils/treatmentTemplates';
+import treatmentTemplates, { getAllTemplates, getTemplateById } from '../../utils/treatmentTemplates';
 import { v4 as uuidv4 } from 'uuid';
 
 const TreatmentPlanTemplates = () => {
@@ -14,14 +14,14 @@ const TreatmentPlanTemplates = () => {
   
   // Get all templates and filter by search query
   const templates = getAllTemplates().filter(template => 
-    template.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    template.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     template.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
   
   // Load the full template details
   const handleSelectTemplate = (templateId) => {
-    const key = templateId.replace('template-', '');
-    setSelectedTemplate(treatmentTemplates[key]);
+    const template = getTemplateById(templateId);
+    setSelectedTemplate(template);
   };
   
   // Use the selected template to create a new treatment plan
@@ -40,7 +40,7 @@ const TreatmentPlanTemplates = () => {
       // Prepare plan with new IDs for all items
       const newPlan = {
         clientId,
-        title: selectedTemplate.title,
+        title: selectedTemplate.name,
         status: 'draft',
         goals: selectedTemplate.goals.map(goal => ({
           ...goal,
@@ -141,7 +141,7 @@ const TreatmentPlanTemplates = () => {
                           : 'bg-gray-700 hover:bg-gray-600'
                       }`}
                     >
-                      <h3 className="font-medium">{template.title}</h3>
+                      <h3 className="font-medium">{template.name}</h3>
                       <p className="text-sm text-gray-400 mt-1">{template.description}</p>
                     </div>
                   ))}
@@ -155,7 +155,7 @@ const TreatmentPlanTemplates = () => {
             {selectedTemplate ? (
               <div className="bg-gray-800 rounded-lg p-6">
                 <div className="flex justify-between items-start mb-6">
-                  <h2 className="text-xl font-medium">{selectedTemplate.title}</h2>
+                  <h2 className="text-xl font-medium">{selectedTemplate.name}</h2>
                   <div className="text-xs text-gray-400">
                     {selectedTemplate.estimatedDuration}
                   </div>

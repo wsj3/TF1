@@ -1,11 +1,63 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Image from 'next/image';
 import AIAssistant from './AIAssistant';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faMagic, faMicrophone, faMicrophoneSlash, faPlay, faStop } from '@fortawesome/free-solid-svg-icons';
+import { useAuth } from '../utils/auth';
+import { sanitizeMessage } from '../utils/hipaaUtils';
+import EnhancedAIAssistant from './EnhancedAIAssistant';
+import Script from 'next/script';
 
-export default function Sidebar() {
+// ElevenLabs configuration
+const ELEVENLABS_API_KEY = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
+
+// Default navigation items
+const defaultNavigation = [
+  { name: 'Dashboard', href: '/dashboard', icon: 'home' },
+  { name: 'Tasks', href: '/tasks', icon: 'task' },
+  { name: 'Clients', href: '/clients', icon: 'user' },
+  { name: 'Appointments', href: '/appointments', icon: 'calendar' },
+  { name: 'Sessions', href: '/sessions', icon: 'chat' },
+  { name: 'Treatment Plans', href: '/treatment-plans', icon: 'treatment' },
+  { name: 'Diagnoses', href: '/diagnoses', icon: 'diagnosis' },
+  { name: 'Billing', href: '/billing', icon: 'billing' },
+  { name: 'Settings', href: '/settings', icon: 'settings' }
+];
+
+export default function Sidebar({ modules = defaultNavigation, selectedModuleIndex = 0, onModuleChange = () => {}, onLogout = () => {} }) {
   const router = useRouter();
+  const { user } = useAuth(); // Get user directly from auth context
+  
+  // Define navigation with admin check
+  const navigation = [
+    { name: 'Dashboard', href: '/dashboard', icon: 'home' },
+    { name: 'Tasks', href: '/tasks', icon: 'task' },
+    { name: 'Clients', href: '/clients', icon: 'user' },
+    { name: 'Appointments', href: '/appointments', icon: 'calendar' },
+    { name: 'Sessions', href: '/sessions', icon: 'chat' },
+    { name: 'Treatment Plans', href: '/treatment-plans', icon: 'treatment' },
+    { name: 'Diagnoses', href: '/diagnoses', icon: 'diagnosis' },
+    { name: 'Billing', href: '/billing', icon: 'billing' },
+    { name: 'Settings', href: '/settings', icon: 'settings' },
+  ];
+
+  // Add admin link if user is admin
+  useEffect(() => {
+    if (user?.isAdmin) {
+      console.log('User is admin, adding admin console link');
+    }
+  }, [user]);
+
+  // Get the final navigation items
+  const getNavigationItems = () => {
+    if (user?.isAdmin) {
+      return [...navigation, { name: 'Admin Console', href: '/admin', icon: 'settings' }];
+    }
+    return navigation;
+  };
+
   const [aiInterfaceType, setAiInterfaceType] = useState('Text Interface');
   const [aiVoiceSettings, setAiVoiceSettings] = useState({ voice: 'System Default', rate: 50 });
   const [aiTemperature, setAiTemperature] = useState(30);
@@ -16,6 +68,7 @@ export default function Sidebar() {
   const recognitionRef = useRef(null);
   const [humanAvatarState, setHumanAvatarState] = useState('neutral');
   const [aiAvatarState, setAiAvatarState] = useState('neutral');
+  const aiAssistantRef = useRef(null);
   const [guidanceTypes, setGuidanceTypes] = useState({
     mentor: true,
     scientist: false,
@@ -23,6 +76,49 @@ export default function Sidebar() {
     assistant: true,
     peer: false
   });
+  const [isAiAssistantVisible, setAiAssistantVisible] = useState(false);
+  const [error, setError] = useState(null);
+  
+  // New state for ElevenLabs integration
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [audioQueue, setAudioQueue] = useState([]);
+  const audioRef = useRef(new Audio());
+  const [avatarSpeaking, setAvatarSpeaking] = useState(false);
+  
+  // Add new state for ElevenLabs avatar
+  const [avatarStream, setAvatarStream] = useState(null);
+  const avatarVideoRef = useRef(null);
+  
+  // Add state for default voice ID
+  const [defaultVoiceId, setDefaultVoiceId] = useState(null);
+  
+  // Save messages to localStorage
+  const saveMessagesToLocalStorage = (messages) => {
+    if (typeof window !== 'undefined') {
+      try {
+        // Make sure messages are in the right format before saving
+        const formattedMessages = messages.map(msg => {
+          // If old format (sender/text), convert to new format (role/content)
+          if (msg.sender && msg.text) {
+            return {
+              role: msg.sender === 'user' ? 'user' : 'assistant',
+              content: sanitizeMessage(msg.text)
+            };
+          }
+          // If already in new format, just sanitize the content
+          return {
+            role: msg.role || 'assistant',
+            content: sanitizeMessage(msg.content || '')
+          };
+        });
+        
+        localStorage.setItem('aiConversationHistory', JSON.stringify(formattedMessages));
+        console.log(`Saved ${formattedMessages.length} messages to localStorage in standardized format`);
+      } catch (error) {
+        console.error('Error saving messages to localStorage:', error);
+      }
+    }
+  };
   
   // Avatar expressions and states
   const humanAvatarStates = {
@@ -42,71 +138,325 @@ export default function Sidebar() {
     error: '😟'
   };
   
-  // Load AI settings from localStorage on component mount
+  // Load AI settings and conversation history from localStorage on component mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const savedInterfaceType = localStorage.getItem('aiInterfaceType');
       const savedVoiceSettings = localStorage.getItem('aiVoiceSettings');
       const savedTemperature = localStorage.getItem('aiTemperature');
       const savedGuidanceTypes = localStorage.getItem('guidanceTypes');
+      const savedMessages = localStorage.getItem('aiConversationHistory');
+      const storedVisible = localStorage.getItem('ai-assistant-visible');
+      const storedExpanded = localStorage.getItem('ai-assistant-expanded');
       
       if (savedInterfaceType) setAiInterfaceType(savedInterfaceType);
       if (savedVoiceSettings) setAiVoiceSettings(JSON.parse(savedVoiceSettings));
       if (savedTemperature) setAiTemperature(parseInt(savedTemperature));
       if (savedGuidanceTypes) setGuidanceTypes(JSON.parse(savedGuidanceTypes));
+      
+      // Sanitize saved messages when loading from localStorage
+      if (savedMessages) {
+        try {
+          const parsedMessages = JSON.parse(savedMessages);
+          // Apply sanitization to each message and standardize format
+          const sanitizedMessages = parsedMessages.map(msg => {
+            // Convert from old format (sender/text) to new format (role/content) if needed
+            if (msg.sender && msg.text) {
+              return {
+                role: msg.sender === 'user' ? 'user' : 'assistant',
+                content: sanitizeMessage(msg.text)
+              };
+            }
+            
+            // If already in new format, just sanitize the content
+            return {
+              role: msg.role || 'assistant',
+              content: sanitizeMessage(msg.content || '')
+            };
+          });
+          
+          setMessages(sanitizedMessages);
+          console.log(`Loaded and converted ${sanitizedMessages.length} messages from localStorage`);
+        } catch (error) {
+          console.error('Error parsing saved messages:', error);
+          // If there's an error, clear the saved messages
+          localStorage.removeItem('aiConversationHistory');
+          setMessages([]);
+        }
+      }
+      
+      if (storedVisible !== null) {
+        setAiAssistantVisible(storedVisible === 'true');
+      }
+      if (storedExpanded !== null) {
+        setAiAssistantExpanded(storedExpanded === 'true');
+      }
     }
   }, []);
   
-  // Save AI settings to localStorage when they change
+  // Save AI settings and conversation history to localStorage when they change
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('aiInterfaceType', aiInterfaceType);
       localStorage.setItem('aiVoiceSettings', JSON.stringify(aiVoiceSettings));
       localStorage.setItem('aiTemperature', aiTemperature.toString());
       localStorage.setItem('guidanceTypes', JSON.stringify(guidanceTypes));
+      localStorage.setItem('aiAssistantExpanded', aiAssistantExpanded.toString());
     }
-  }, [aiInterfaceType, aiVoiceSettings, aiTemperature, guidanceTypes]);
+  }, [aiInterfaceType, aiVoiceSettings, aiTemperature, guidanceTypes, aiAssistantExpanded]);
   
-  // Initialize speech recognition
+  // Save conversation history to localStorage when it changes
   useEffect(() => {
-    // Check if SpeechRecognition is available
-    if (typeof window !== 'undefined') {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (typeof window !== 'undefined' && messages.length > 0) {
+      localStorage.setItem('aiConversationHistory', JSON.stringify(messages));
+    }
+  }, [messages]);
+  
+  // Modified function to handle user interaction
+  const handleUserInteraction = async () => {
+    try {
+      if (!ELEVENLABS_API_KEY) {
+        throw new Error('ElevenLabs API key is required');
+      }
+
+      // Ensure AI Assistant is disabled
+      if (aiAssistantRef.current) {
+        aiAssistantRef.current.stopListening();
+        aiAssistantRef.current.disableVoiceResponse();
+        setAiAssistant(false); // Disable AI Assistant state
+      }
+
+      // First, get available voices
+      const voicesResponse = await fetch('https://api.elevenlabs.io/v1/voices', {
+        headers: {
+          'Accept': 'application/json',
+          'xi-api-key': ELEVENLABS_API_KEY
+        }
+      });
+
+      if (!voicesResponse.ok) {
+        throw new Error(`Failed to fetch voices: ${voicesResponse.status}`);
+      }
+
+      const voicesData = await voicesResponse.json();
+      const defaultVoice = voicesData.voices[0]?.voice_id;
+
+      if (!defaultVoice) {
+        throw new Error('No voices available');
+      }
+
+      // Store the default voice ID
+      setDefaultVoiceId(defaultVoice);
+
+      // Initialize text-to-speech stream
+      const streamResponse = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${defaultVoice}/stream`, {
+        method: 'POST',
+        headers: {
+          'Accept': 'audio/mpeg',
+          'Content-Type': 'application/json',
+          'xi-api-key': ELEVENLABS_API_KEY,
+        },
+        body: JSON.stringify({
+          text: "Hello, I'm your AI assistant. You can start speaking now.",
+          model_id: 'eleven_monolingual_v1',
+          voice_settings: {
+            stability: 0.5,
+            similarity_boost: 0.75,
+          }
+        }),
+      });
+
+      if (!streamResponse.ok) {
+        throw new Error(`Failed to initialize stream: ${streamResponse.status}`);
+      }
+
+      const audioBlob = await streamResponse.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+
+      // Start speech recognition before playing audio
+      await startListening();
       
-      if (SpeechRecognition && !recognitionRef.current) {
-        recognitionRef.current = new SpeechRecognition();
-        recognitionRef.current.continuous = false;
-        recognitionRef.current.interimResults = false;
-        recognitionRef.current.lang = 'en-US';
+      // Play the greeting
+      audio.onended = () => {
+        console.log('Greeting ended, ready for input');
+        // Clean up the audio URL
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      await audio.play();
+      console.log('Audio playback started');
+
+    } catch (error) {
+      console.error('Error in handleUserInteraction:', error);
+      setError(`Failed to initialize: ${error.message}`);
+      setListening(false);
+    }
+  };
+
+  // Updated startListening function
+  const startListening = async () => {
+    try {
+      // Initialize speech recognition
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        throw new Error('Speech recognition not supported in this browser');
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+
+      recognition.onstart = () => {
+        setListening(true);
+        setError(null);
+        console.log('Speech recognition started');
+      };
+
+      recognition.onresult = (event) => {
+        const transcript = Array.from(event.results)
+          .map(result => result[0].transcript)
+          .join('');
         
-        recognitionRef.current.onresult = (event) => {
-          const transcript = event.results[0][0].transcript;
-          setMessage(transcript);
-          
-          // Auto-submit when using voice input
-          setTimeout(() => {
-            handleSendMessage(null, transcript);
-          }, 500);
-        };
-        
-        recognitionRef.current.onend = () => {
-          setListening(false);
-        };
-        
-        recognitionRef.current.onerror = (event) => {
-          console.error('Speech recognition error', event.error);
-          setListening(false);
-        };
+        if (event.results[0].isFinal) {
+          // Process the transcript
+          processUserInput(transcript);
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
+        setError(`Speech recognition error: ${event.error}`);
+        setListening(false);
+      };
+
+      recognition.onend = () => {
+        // Only restart if we're supposed to be listening
+        if (listening) {
+          recognition.start();
+        }
+      };
+
+      recognition.start();
+      recognitionRef.current = recognition;
+
+    } catch (error) {
+      console.error('Failed to start speech recognition:', error);
+      setError(`Failed to start speech recognition: ${error.message}`);
+      setListening(false);
+    }
+  };
+
+  // Modified function to process user input
+  const processUserInput = async (transcript) => {
+    try {
+      console.log('Processing user input:', transcript);
+      
+      // Add user message to conversation
+      const userMessage = { role: 'user', content: transcript };
+      setMessages(prev => [...prev, userMessage]);
+
+      // Get AI response using the AI Assistant's logic but not its voice
+      let aiResponse;
+      if (aiAssistantRef.current) {
+        // Use the AI Assistant's processing without voice
+        aiResponse = await aiAssistantRef.current.getResponseWithoutVoice(transcript);
+      } else {
+        aiResponse = `I heard you say: ${transcript}. How can I help you with that?`;
+      }
+
+      // Get voice response using ElevenLabs
+      const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/stream', {
+        method: 'POST',
+        headers: {
+          'Accept': 'audio/mpeg',
+          'Content-Type': 'application/json',
+          'xi-api-key': ELEVENLABS_API_KEY,
+        },
+        body: JSON.stringify({
+          text: aiResponse,
+          voice_id: defaultVoiceId,
+          model_id: 'eleven_monolingual_v1',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to get AI response: ${response.status}`);
+      }
+
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+
+      // Add AI response to conversation
+      const aiMessage = { role: 'assistant', content: aiResponse };
+      setMessages(prev => [...prev, aiMessage]);
+
+      // Play the AI response
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+      };
+
+      await audio.play();
+
+    } catch (error) {
+      console.error('Error processing user input:', error);
+      setError(`Failed to process input: ${error.message}`);
+    }
+  };
+
+  // Modified toggleListening function
+  const toggleListening = () => {
+    if (listening) {
+      // Stop listening
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+      }
+      setListening(false);
+      
+      // Also stop the AI Assistant if it's active
+      if (aiAssistantRef.current) {
+        aiAssistantRef.current.stopListening();
+        setAiAssistant(false); // Disable AI Assistant state
+      }
+    } else {
+      // Disable AI Assistant before starting our voice interaction
+      if (aiAssistantRef.current) {
+        aiAssistantRef.current.stopListening();
+        setAiAssistant(false); // Disable AI Assistant state
+      }
+      // Start the interaction process
+      handleUserInteraction();
+    }
+  };
+  
+  // Auto-activate microphone when switching to voice modes
+  useEffect(() => {
+    if (aiAssistantRef.current && 
+        (aiInterfaceType === 'Voice Interface' || aiInterfaceType === 'Hybrid Interface') && 
+        !listening) {
+      // Short delay to ensure the component is fully mounted
+      const timer = setTimeout(() => {
+        if (aiAssistantRef.current) {
+          aiAssistantRef.current.startListening();
+          setListening(true);
+          setHumanAvatarState('speaking');
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    } else if (aiAssistantRef.current && 
+              aiInterfaceType !== 'Voice Interface' && 
+              aiInterfaceType !== 'Hybrid Interface' && 
+              listening) {
+      // Turn off microphone when switching out of voice modes
+      if (aiAssistantRef.current) {
+        aiAssistantRef.current.stopListening();
+        setListening(false);
+        setHumanAvatarState('neutral');
       }
     }
-    
-    // Cleanup function
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.abort();
-      }
-    };
-  }, []);
+  }, [aiInterfaceType, listening]);
   
   // Get avatar settings from localStorage
   useEffect(() => {
@@ -118,335 +468,381 @@ export default function Sidebar() {
     }
   }, []);
   
-  // Function to toggle speech recognition
-  const toggleListening = () => {
-    if (!recognitionRef.current) {
-      alert('Speech recognition is not supported in your browser.');
-      return;
-    }
-    
-    if (listening) {
-      recognitionRef.current.abort();
-      setListening(false);
-      setHumanAvatarState('neutral');
-    } else {
-      setListening(true);
-      setHumanAvatarState('speaking');
-      recognitionRef.current.start();
-    }
+  // Toggle AI Assistant visibility
+  const toggleAiAssistant = () => {
+    setAiAssistantVisible(!isAiAssistantVisible);
   };
   
-  const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: 'home' },
-    { name: 'Tasks', href: '/tasks', icon: 'task' },
-    { name: 'Clients', href: '/clients', icon: 'user' },
-    { name: 'Appointments', href: '/appointments', icon: 'calendar' },
-    { name: 'Sessions', href: '/sessions', icon: 'chat' },
-    { name: 'Diagnoses', href: '/diagnoses', icon: 'diagnosis' },
-    { name: 'Billing', href: '/billing', icon: 'billing' },
-    { name: 'Settings', href: '/settings', icon: 'settings' },
-  ];
-  
-  // Toggle AI Assistant expansion
+  // Toggle AI Assistant expanded state
   const toggleAiAssistantExpanded = () => {
-    setAiAssistantExpanded(!aiAssistantExpanded);
+    const newExpandedState = !aiAssistantExpanded;
+    setAiAssistantExpanded(newExpandedState);
+    
+    // Store in localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ai-assistant-expanded', String(newExpandedState));
+      
+      // Dispatch event to notify Layout component
+      const event = new CustomEvent('aiAssistantStateChange', {
+        detail: {
+          enabled: newExpandedState,
+          settings: {
+            interfaceType: aiInterfaceType,
+            voiceSettings: aiVoiceSettings,
+            temperature: aiTemperature,
+            guidanceTypes: guidanceTypes
+          }
+        }
+      });
+      window.dispatchEvent(event);
+    }
   };
-
-  // Function to handle sending a message
-  const handleSendMessage = async (e, voiceInput = null) => {
-    e?.preventDefault();
-    
-    let userMessage = voiceInput || message.trim();
-    
-    if (!userMessage) return;
-    
-    // Add user message to chat
-    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
-    
-    // Clear input
-    setMessage('');
-    
-    // Update avatar states
-    setHumanAvatarState('listening');
-    setAiAvatarState('thinking');
+  
+  // Handle module change with AI assistant persistence
+  const handleModuleChange = (index) => {
+    // Only create a new conversation if specifically changing to a different module
+    if (index !== selectedModuleIndex) {
+      onModuleChange(index);
+    }
+  };
+  
+  // Use a persistent key for the AI Assistant based on user ID
+  const persistenceKey = user?.id ? `user-${user.id}` : 'guest-user';
+  
+  // Add this safe rendering function
+  const safeMsgContent = (msg) => {
+    // Skip sanitization if msg is null or undefined
+    if (!msg || !msg.content) {
+      return "Empty message";
+    }
     
     try {
-      // Make API call to OpenAI
-      const response = await fetch('/api/assistant', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt: userMessage,
-          temperature: aiTemperature / 100,
-          interfaceType: aiInterfaceType,
-          guidanceTypes: guidanceTypes
-        }),
-      });
+      // Try to sanitize the content first
+      const sanitized = sanitizeMessage(msg.content);
       
-      if (!response.ok) {
-        throw new Error('Failed to get response from AI assistant');
+      // If it contains suspicious patterns after sanitization, replace with a safe message
+      const hasSuspiciousContent = (
+        sanitized.includes('<') ||
+        sanitized.includes('>') ||
+        sanitized.includes('script') ||
+        sanitized.includes('iframe') ||
+        sanitized.includes('onerror') ||
+        sanitized.includes('javascript') ||
+        sanitized.length > 500 // If extremely long, it might be problematic
+      );
+      
+      if (hasSuspiciousContent) {
+        return msg.role === 'user' 
+          ? "User message (contains potentially unsafe content)" 
+          : "AI response (contains potentially unsafe content)";
       }
       
-      const data = await response.json();
-      
-      // Add AI response to chat
-      setMessages(prev => 
-        [...prev, { role: 'assistant', content: data.message }]
-      );
-      
-      // Update avatar state to speaking
-      setAiAvatarState('speaking');
-      
-      // After a delay, set back to neutral
-      setTimeout(() => {
-        setAiAvatarState('neutral');
-        setHumanAvatarState('neutral');
-      }, 3000);
-      
+      return sanitized;
     } catch (error) {
-      console.error('Error in AI assistant:', error);
-      
-      // Add error message to chat
-      setMessages(prev => 
-        [...prev, { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }]
+      console.error('Error rendering safe message content:', error);
+      return "Error displaying message";
+    }
+  };
+  
+  // Function to display external database links
+  const formatExternalLinks = (msg) => {
+    // Check if the message has externalLinks property
+    if (msg && msg.externalLinks && Array.isArray(msg.externalLinks) && msg.externalLinks.length > 0) {
+      return (
+        <>
+          {safeMsgContent(msg)}
+          <div className="mt-1 text-xs">
+            <div className="text-gray-400">External References:</div>
+            <ul className="list-disc pl-4 text-blue-300">
+              {msg.externalLinks.map((link, i) => (
+                <li key={i}>
+                  <a 
+                    href={link.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="hover:underline"
+                  >
+                    {link.title || link.source}
+                  </a>
+                  {link.description && <span className="text-gray-400 ml-1">- {link.description}</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </>
       );
-      
-      // Set error state for AI avatar
-      setAiAvatarState('error');
-      setTimeout(() => setAiAvatarState('neutral'), 3000);
+    }
+    
+    // If no external links, just return the message content
+    return safeMsgContent(msg);
+  };
+  
+  // Initialize ElevenLabs avatar stream
+  const initializeAvatarStream = async () => {
+    try {
+      console.log('Initializing avatar with API key:', !!ELEVENLABS_API_KEY);
+
+      // Validate configuration
+      if (!ELEVENLABS_API_KEY) {
+        throw new Error('Missing ElevenLabs API key. Please check your environment variables.');
+      }
+
+      // First, get available voices
+      const voicesResponse = await fetch('https://api.elevenlabs.io/v1/voices', {
+        headers: {
+          'Accept': 'application/json',
+          'xi-api-key': ELEVENLABS_API_KEY
+        }
+      });
+
+      if (!voicesResponse.ok) {
+        throw new Error(`Failed to fetch voices: ${voicesResponse.status}`);
+      }
+
+      const voicesData = await voicesResponse.json();
+      const defaultVoice = voicesData.voices[0]?.voice_id;
+
+      if (!defaultVoice) {
+        throw new Error('No voices available');
+      }
+
+      // Store the voice ID for later use
+      setDefaultVoiceId(defaultVoice);
+
+      // Set up video element with a placeholder
+      if (avatarVideoRef.current) {
+        avatarVideoRef.current.srcObject = new MediaStream();
+        console.log('Video element initialized');
+      } else {
+        console.error('Video element reference not found');
+      }
+
+      // Show initialization success message
+      setError(null);
+      console.log('Avatar initialized successfully. Click the microphone button to start interaction.');
+
+    } catch (error) {
+      console.error('Avatar initialization error:', error);
+      setError(`Failed to initialize AI avatar: ${error.message}`);
     }
   };
 
-  return (
-    <div className="fixed left-0 top-0 bottom-0 w-64 bg-gray-900 border-r border-gray-800 flex flex-col">
-      <div className="flex items-center h-16 px-4 border-b border-gray-800">
-        <Link href="/" className="flex items-center">
-          <div className="w-8 h-8 mr-2">
-            <img src="/logo.png" alt="Logo" className="w-8 h-8" />
-          </div>
-          <span className="text-white text-xl font-bold">Therapist's Friend</span>
-        </Link>
-      </div>
-      
-      <nav className="mt-5 px-2 space-y-1 flex-grow overflow-y-auto">
-        {navigation.map((item) => {
-          // Check if the current path matches the navigation item
-          const isActive = router.pathname === item.href;
-          
-          return (
-            <Link 
-              href={item.href} 
-              key={item.name}
-              className={`
-                group flex items-center px-2 py-2 text-base font-medium rounded-md
-                ${isActive ? 'bg-gray-800 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}
-              `}
-            >
-              <span className="mr-4">{getIcon(item.icon, isActive)}</span>
-              {item.name}
-              {item.badge && (
-                <span className="ml-auto text-xs bg-green-700 text-white px-1 rounded">
-                  {item.badge}
-                </span>
-              )}
-            </Link>
-          );
-        })}
+  // Clean up avatar stream
+  useEffect(() => {
+    return () => {
+      if (avatarStream) {
+        avatarStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [avatarStream]);
+
+  // Handle playing audio queue
+  useEffect(() => {
+    if (audioQueue.length > 0 && !isPlaying) {
+      const playNext = async () => {
+        setIsPlaying(true);
+        setAvatarSpeaking(true);
         
-        {/* AI Assistant Toggle Button - Now part of the navigation */}
-        <button 
-          onClick={toggleAiAssistantExpanded}
-          className="flex items-center justify-between w-full px-2 py-2 text-base font-medium rounded-md text-blue-400 hover:bg-gray-700"
-        >
-          <div className="flex items-center">
-            <span className="mr-4">{getIcon('ai', false)}</span>
-            <span className="whitespace-nowrap">AI Assistant</span>
-          </div>
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            className={`h-4 w-4 transition-transform ${aiAssistantExpanded ? 'transform rotate-180' : ''}`} 
-            fill="none" 
-            viewBox="0 0 24 24" 
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
+        const currentAudio = audioQueue[0];
+        audioRef.current.src = currentAudio;
         
-        {/* AI Assistant Component - Conditional rendering within navigation */}
-        {aiAssistantExpanded && (
-          <div className="mt-2 ml-4 mr-2 bg-gray-800 rounded-lg p-3">
-            <div className="text-center mb-2 text-sm font-medium text-gray-300">
-              <span className="whitespace-nowrap">AI Assistant</span>
-            </div>
-            
-            {/* Interface Mode Toggle Icons */}
-            <div className="flex justify-center space-x-3 mb-3">
-              {/* Text Mode Icon */}
-              <button 
-                onClick={() => setAiInterfaceType('Text Interface')}
-                className={`p-2 rounded-full ${aiInterfaceType === 'Text Interface' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}
-                title="Text Interface"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                </svg>
-              </button>
-              
-              {/* Speech Mode Icon */}
-              <button 
-                onClick={() => setAiInterfaceType('Voice Interface')}
-                className={`p-2 rounded-full ${aiInterfaceType === 'Voice Interface' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}
-                title="Voice Interface"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                </svg>
-              </button>
-              
-              {/* Avatar Mode Icon */}
-              <button 
-                onClick={() => setAiInterfaceType('Avatar Interface')}
-                className={`p-2 rounded-full ${aiInterfaceType === 'Avatar Interface' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}
-                title="Avatar Interface"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              </button>
-              
-              {/* Hybrid Mode Icon */}
-              <button 
-                onClick={() => setAiInterfaceType('Hybrid Interface')}
-                className={`p-2 rounded-full ${aiInterfaceType === 'Hybrid Interface' ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}
-                title="Hybrid Interface"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                </svg>
-              </button>
-            </div>
-            
-            {/* Current Interface Mode Label */}
-            <div className="text-center text-xs text-gray-400 mb-3">
-              {aiInterfaceType === 'Text Interface' && "Text mode: Type to chat"}
-              {aiInterfaceType === 'Voice Interface' && "Voice mode: Speak to chat"}
-              {aiInterfaceType === 'Avatar Interface' && "Avatar mode: Visual interaction"}
-              {aiInterfaceType === 'Hybrid Interface' && "Hybrid mode: All features enabled"}
-            </div>
-            
-            {/* Avatar Display Area */}
-            {(aiInterfaceType === 'Avatar Interface' || aiInterfaceType === 'Hybrid Interface') && (
-              <div className="flex justify-around items-center mb-3 mt-1 bg-gray-700 p-2 rounded-md">
-                {/* Human Avatar */}
+        try {
+          await audioRef.current.play();
+        } catch (error) {
+          console.error('Error playing audio:', error);
+          setError('Failed to play audio');
+        }
+      };
+
+      playNext();
+    }
+  }, [audioQueue, isPlaying]);
+
+  // Handle audio events
+  useEffect(() => {
+    const audio = audioRef.current;
+
+    const handleEnded = () => {
+      setIsPlaying(false);
+      setAvatarSpeaking(false);
+      setAudioQueue(prev => prev.slice(1));
+      URL.revokeObjectURL(audio.src);
+    };
+
+    audio.addEventListener('ended', handleEnded);
+    return () => audio.removeEventListener('ended', handleEnded);
+  }, []);
+
+  // Modified handleSendMessage to include voice response
+  const handleSendMessage = async (message) => {
+    try {
+      // Add user message to the conversation
+      const newMessages = [...messages, { role: 'user', content: message }];
+      setMessages(newMessages);
+      saveMessagesToLocalStorage(newMessages);
+
+      // Get AI response
+      const response = await aiAssistantRef.current?.sendMessage(message);
+      if (response) {
+        // Add AI response to the conversation
+        const updatedMessages = [...newMessages, { role: 'assistant', content: response }];
+        setMessages(updatedMessages);
+        saveMessagesToLocalStorage(updatedMessages);
+
+        // Convert AI response to speech
+        const audioUrl = await textToSpeech(response);
+        if (audioUrl) {
+          setAudioQueue(prev => [...prev, audioUrl]);
+        }
+      }
+    } catch (error) {
+      console.error('Error handling message:', error);
+      handleAIError(error);
+    }
+  };
+
+  // Handle AI errors
+  const handleAIError = (error) => {
+    console.error('AI Assistant error:', error);
+    setError(error.message || 'An error occurred with the AI Assistant');
+    setListening(false);
+  };
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      if (aiAssistantRef.current) {
+        aiAssistantRef.current.stopListening();
+      }
+    };
+  }, []);
+
+  const isActive = (path) => {
+    return router.pathname === path;
+  };
+
+  // Modified renderAIAvatar function
+  const renderAIAvatar = () => {
+    return (
+      <div className="fixed bottom-0 left-0 w-64 bg-gray-900 p-4 rounded-tr-lg shadow-lg">
+        <div className="flex flex-col items-center space-y-4">
+          {/* ElevenLabs Avatar Video */}
+          <div className="relative w-full aspect-square rounded-lg overflow-hidden bg-gray-800">
+            <video
+              ref={avatarVideoRef}
+              className="w-full h-full object-cover"
+              autoPlay
+              playsInline
+              muted={false}
+            />
+            {!avatarStream && (
+              <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
-                  <div className="bg-gray-800 rounded-full w-10 h-10 flex items-center justify-center">
-                    <span className="text-2xl" title="You">{humanAvatarStates[humanAvatarState]}</span>
+                  <div className="animate-pulse text-gray-400 mb-2">
+                    {error ? 'Click microphone to start' : 'Loading Avatar...'}
                   </div>
-                  <span className="text-xs text-gray-400">You</span>
-                </div>
-                
-                {/* Dialogue Indicator */}
-                <div className="flex-1 px-2 flex justify-center">
-                  <svg className="h-6 w-6 text-gray-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M20 12H4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M4 12L10 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    <path d="M4 12L10 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </div>
-                
-                {/* AI Avatar */}
-                <div className="text-center">
-                  <div className="bg-gray-800 rounded-full w-10 h-10 flex items-center justify-center">
-                    <span className="text-2xl" title="AI Assistant">{aiAvatarStates[aiAvatarState]}</span>
-                  </div>
-                  <span className="text-xs text-gray-400">AI</span>
+                  {error && (
+                    <div className="text-red-400 text-sm px-4">
+                      {error}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
-            
-            <form onSubmit={handleSendMessage} className="flex items-center px-3 py-2 bg-gray-700 rounded-md">
-              <input
-                type="text"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                className="w-full bg-transparent border-none focus:outline-none text-sm text-gray-300 placeholder-gray-500"
-                placeholder={listening ? "Listening..." : "Type your message..."}
-                onClick={(e) => {
-                  e.stopPropagation();
-                }}
-                disabled={listening}
-              />
-              
-              {/* Show microphone button for voice interface */}
-              {(aiInterfaceType === 'Voice Interface' || aiInterfaceType === 'Hybrid Interface') && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleListening();
-                  }}
-                  className={`p-1 mr-1 rounded-full ${listening ? 'bg-red-600 hover:bg-red-700' : 'bg-gray-600 hover:bg-gray-500'}`}
-                  title={listening ? "Stop listening" : "Start listening"}
-                >
-                  <svg 
-                    xmlns="http://www.w3.org/2000/svg" 
-                    className="h-4 w-4 text-white" 
-                    fill="none" 
-                    viewBox="0 0 24 24" 
-                    stroke="currentColor"
-                  >
-                    {listening ? (
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    ) : (
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                    )}
-                  </svg>
-                </button>
-              )}
-              
-              {/* Send button */}
-              <button 
-                type="submit"
-                className="p-1 rounded-full hover:bg-gray-600 focus:outline-none" 
-                aria-label="Send message"
-                disabled={listening || (!message.trim() && !listening)}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-300" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </button>
-            </form>
-            {/* Display conversation area */}
-            <div className="mt-3 max-h-40 overflow-y-auto bg-gray-700 rounded-md p-2">
-              {messages.length === 0 ? (
-                <div className="text-xs text-gray-400">
-                  Assistant is ready to help. Type a message to begin.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {messages.map((msg, i) => (
-                    <div 
-                      key={i} 
-                      className={`text-xs ${msg.role === 'user' ? 'text-blue-300 text-right' : 'text-gray-300'}`}
-                    >
-                      <span className={`inline-block px-2 py-1 rounded-md ${msg.role === 'user' ? 'bg-blue-800' : 'bg-gray-800'}`}>
-                        {msg.content}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
-        )}
-      </nav>
+
+          {/* Controls */}
+          <div className="flex items-center justify-between w-full">
+            <span className="text-white text-sm font-medium">AI Assistant</span>
+            <button
+              onClick={() => {
+                handleUserInteraction();
+                toggleListening();
+              }}
+              className={`p-2 rounded-full ${listening ? 'bg-red-600' : 'bg-blue-600'} text-white`}
+              title={listening ? 'Stop Listening' : 'Start Listening'}
+            >
+              <FontAwesomeIcon icon={listening ? faMicrophoneSlash : faMicrophone} className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Initialize avatar when component mounts
+  useEffect(() => {
+    initializeAvatarStream();
+  }, []);
+
+  return (
+    <div className="flex flex-col h-full bg-gray-900 w-64 fixed left-0 top-0">
+      {/* Main sidebar content */}
+      <div className="flex-1 flex flex-col min-h-0 bg-gray-900">
+        <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
+          <div className="flex items-center flex-shrink-0 px-4">
+            <span className="text-xl font-semibold text-white">Therapist's Friend</span>
+          </div>
+          <nav className="mt-5 flex-1 px-2 space-y-1">
+            {modules.map((module, index) => (
+              <button
+                key={module.name}
+                onClick={() => onModuleChange(index)}
+                className={`${
+                  selectedModuleIndex === index
+                    ? 'bg-gray-800 text-white'
+                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                } group flex items-center px-2 py-2 text-sm font-medium rounded-md w-full`}
+              >
+                {getIcon(module.icon, selectedModuleIndex === index)}
+                <span className="ml-3">{module.name}</span>
+              </button>
+            ))}
+
+            {/* ElevenLabs Widget */}
+            <div className="mt-2">
+              <style jsx global>{`
+                elevenlabs-convai {
+                  --background-color: #111827;
+                  --text-color: #000000;
+                  --button-color: #000000;
+                  --button-text-color: #ffffff;
+                  --border-color: #e1e1e1;
+                  --focus-outline-color: #000000;
+                  --card-radius: 20px;
+                  --button-radius: 32px;
+                  --avatar-first-color: #EDB035;
+                  --avatar-second-color: #F5CAB8;
+                  position: relative !important;
+                  right: auto !important;
+                  bottom: auto !important;
+                  width: 100% !important;
+                }
+              `}</style>
+              <elevenlabs-convai agent-id="JpEws8YUu0EDKkpvZPOt"></elevenlabs-convai>
+              <Script src="https://elevenlabs.io/convai-widget/index.js" strategy="lazyOnload" />
+            </div>
+          </nav>
+        </div>
+      </div>
+
+      {/* Logout button */}
+      <div className="p-4 border-t border-gray-700">
+        <button
+          onClick={onLogout}
+          className="w-full flex items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 hover:text-white rounded-md"
+        >
+          <svg className="mr-3 h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          Logout
+        </button>
+      </div>
     </div>
   );
 }
 
+// Icon rendering function
 function getIcon(name, isActive) {
   const className = `h-6 w-6 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'}`;
   
@@ -487,6 +883,12 @@ function getIcon(name, isActive) {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
         </svg>
       );
+    case 'treatment':
+      return (
+        <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      );
     case 'billing':
       return (
         <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -498,12 +900,6 @@ function getIcon(name, isActive) {
         <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-      );
-    case 'ai':
-      return (
-        <svg className={`h-6 w-6 ${isActive ? 'text-white' : 'text-blue-400'}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
         </svg>
       );
     default:

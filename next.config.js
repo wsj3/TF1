@@ -23,17 +23,19 @@ const nextConfig = {
   },
   // Configure pages that require authentication to be server-side rendered
   pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
-  // Configure which pages should be pre-rendered
+  
+  // Disable static export for most pages
+  output: 'standalone',
+  
+  // Configure only the absolute minimum pages to be pre-rendered
   async exportPathMap(defaultPathMap, { dev, dir, outDir, distDir, buildId }) {
-    // Only include public pages in the static export
-    // All authenticated/dynamic routes will be handled by server-side rendering
+    // Return only essential public pages
     return {
       '/': { page: '/' },
       '/404': { page: '/404' },
       '/auth/signin': { page: '/auth/signin' },
       '/auth/login': { page: '/auth/login' },
       '/auth/simple-signin': { page: '/auth/simple-signin' },
-      // Explicitly exclude all other pages that require authentication
     }
   },
   poweredByHeader: false,

@@ -16,6 +16,9 @@ COPY . .
 RUN ls -la public && echo "Public directory with assets is present"
 RUN test -f public/logo.png && echo "Logo file exists"
 
+# Generate Prisma client
+RUN npx prisma generate
+
 # Build the Next.js application
 RUN npm run build
 

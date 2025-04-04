@@ -1,4 +1,4 @@
-import { prisma } from '../../../lib/prisma';
+import prisma from '../../../lib/prisma';
 import { getIronSession } from 'iron-session';
 import { sessionOptions } from '../../../utils/session';
 

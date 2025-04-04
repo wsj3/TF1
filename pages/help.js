@@ -22,9 +22,9 @@ export default function Help() {
                 </p>
               </div>
               <div>
-                <h3 className="text-lg font-medium text-blue-400">How can I use the AI Assistant?</h3>
+                <h3 className="text-lg font-medium text-blue-400">How can I use the AI Assistant in the sidebar?</h3>
                 <p className="text-gray-300 mt-1">
-                  The AI Assistant can help with tasks like summarizing sessions, suggesting treatment approaches, and drafting session notes. Simply type your question in the AI Assistant interface.
+                  The AI Assistant widget is located in the sidebar on the left side of every page (labeled "AI ASSISTANT"). It can help with tasks like summarizing sessions, suggesting treatment approaches, and drafting session notes. Simply type your question in the input field of the widget.
                 </p>
               </div>
             </div>

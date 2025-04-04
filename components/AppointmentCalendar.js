@@ -8,11 +8,6 @@ import { format } from 'date-fns';
 import { useAuth } from '../utils/auth';
 import styles from '../styles/Calendar.module.css';
 
-// Import required FullCalendar CSS
-import '@fullcalendar/common/main.css';
-import '@fullcalendar/daygrid/main.css';
-import '@fullcalendar/timegrid/main.css';
-
 // Session status to color mapping
 const statusColors = {
   SCHEDULED: '#4a6cf7', // bright blue (changed from original)

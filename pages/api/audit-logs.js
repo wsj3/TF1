@@ -1,7 +1,7 @@
-import { verifySessionToken } from '../../../utils/security';
-import { hasPermission } from '../../../utils/security';
-import { decryptData } from '../../../utils/encryption';
-import { validateHIPAACompliance } from '../../../utils/hipaaUtils';
+import { verifySessionToken } from '../../utils/security';
+import { hasPermission } from '../../utils/security';
+import { decryptData } from '../../utils/encryption';
+import { validateHIPAACompliance } from '../../utils/hipaaUtils';
 
 export default async function handler(req, res) {
   // Verify authentication

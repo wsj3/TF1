@@ -1,77 +1,34 @@
 import { useState, useEffect, useRef } from 'react';
 import { loadScriptWithRetries, canLoadScripts } from '../../utils/script-loader';
+import Script from 'next/script';
 
 export default function ElevenLabsWidget() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const iframeRef = useRef(null);
   const containerRef = useRef(null);
+  const isDev = process.env.NODE_ENV === 'development';
 
-  // Load the widget script safely
+  // Handle script loading errors
+  const handleScriptError = () => {
+    console.error('Failed to load ElevenLabs widget script');
+    setHasError(true);
+  };
+
+  const handleScriptLoad = () => {
+    console.log('ElevenLabs widget script loaded successfully');
+    setIsLoaded(true);
+  };
+
+  // Handle when widget might fail to load
   useEffect(() => {
-    // Skip in server-side rendering
-    if (!canLoadScripts()) return;
-
-    let isMounted = true;
-    
-    const loadWidgetScript = async () => {
-      try {
-        // Attempt to load the script with retries
-        const success = await loadScriptWithRetries('https://elevenlabs.io/convai-widget/index.js', 1, 5000);
-        
-        if (isMounted) {
-          if (success) {
-            console.log('ElevenLabs widget script loaded successfully');
-            setIsLoaded(true);
-          } else {
-            console.error('Failed to load ElevenLabs widget after retries');
-            setHasError(true);
-          }
-        }
-      } catch (error) {
-        if (isMounted) {
-          console.error('Error loading ElevenLabs widget:', error);
-          setHasError(true);
-        }
-      }
-    };
-
-    loadWidgetScript();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  // Safely handle iframe loading
-  useEffect(() => {
-    const handleLoad = () => {
-      setIsLoaded(true);
-    };
-
-    const handleError = () => {
-      console.error('Failed to load ElevenLabs widget iframe');
-      setHasError(true);
-    };
-
-    const iframe = iframeRef.current;
-    if (iframe) {
-      iframe.addEventListener('load', handleLoad);
-      iframe.addEventListener('error', handleError);
-    }
-
     // Set a timeout to mark as error if it takes too long to load
     const timeoutId = setTimeout(() => {
       if (!isLoaded) {
         setHasError(true);
       }
-    }, 5000);
+    }, 8000);
 
     return () => {
-      if (iframe) {
-        iframe.removeEventListener('load', handleLoad);
-        iframe.removeEventListener('error', handleError);
-      }
       clearTimeout(timeoutId);
     };
   }, [isLoaded]);
@@ -88,34 +45,9 @@ export default function ElevenLabsWidget() {
     );
   }
 
-  // Direct embedding of widget (alternative approach for development)
-  if (process.env.NODE_ENV === 'development') {
-    return (
-      <div className="p-4 bg-gray-800 rounded-md">
-        <div className="flex items-center space-x-3 mb-2">
-          <div className="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center">
-            <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-            </svg>
-          </div>
-          <div>
-            <h3 className="text-sm font-medium text-white">AI Assistant</h3>
-            <p className="text-xs text-gray-400">Development Mode</p>
-          </div>
-        </div>
-        <div className="bg-gray-700 p-3 rounded-md mt-2">
-          <p className="text-sm text-gray-300">How can I help you with your therapy practice today?</p>
-        </div>
-        <div className="mt-3 flex gap-2">
-          <button className="bg-blue-600 hover:bg-blue-700 text-xs text-white rounded-md px-3 py-2 flex-1">Try me in production!</button>
-        </div>
-      </div>
-    );
-  }
-
-  // Production widget with iframe fallback
+  // Direct embedding of widget for both development and production
   return (
-    <div className="relative mt-2 p-1 bg-gray-800 rounded-md overflow-hidden" style={{ height: "400px" }}>
+    <div className="relative p-1 bg-gray-800 rounded-md overflow-hidden" style={{ minHeight: "300px" }}>
       <style jsx global>{`
         elevenlabs-convai {
           --background-color: #111827;
@@ -132,10 +64,30 @@ export default function ElevenLabsWidget() {
           right: auto !important;
           bottom: auto !important;
           width: 100% !important;
-          height: 100% !important;
+          min-height: 300px !important;
         }
       `}</style>
+      
       <elevenlabs-convai agent-id="JpEws8YUu0EDKkpvZPOt"></elevenlabs-convai>
+      
+      <Script 
+        src="https://elevenlabs.io/convai-widget/index.js" 
+        strategy="afterInteractive"
+        onError={handleScriptError}
+        onLoad={handleScriptLoad}
+      />
+      
+      {!isLoaded && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-80">
+          <div className="animate-pulse flex space-x-4">
+            <div className="flex-1 space-y-4 py-1 items-center text-center">
+              <div className="h-4 bg-gray-700 rounded mx-auto w-3/4"></div>
+              <div className="h-4 bg-gray-700 rounded mx-auto w-1/2"></div>
+              <div className="text-sm text-gray-400 mt-2">Loading AI Assistant...</div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

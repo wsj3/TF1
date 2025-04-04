@@ -15,8 +15,14 @@ export default function CustomTopNav() {
     <nav className="fixed top-0 right-0 left-64 h-16 bg-gray-800 flex items-center justify-between px-4 shadow-md z-10">
       <div className="flex-1">
         {/* Left section */}
-        <div className="flex items-center">
-          {/* Optional: Search box or other elements */}
+        <div className="flex items-center space-x-4">
+          {/* About and Help links */}
+          <Link href="/about" className="text-gray-300 hover:text-white text-sm">
+            About
+          </Link>
+          <Link href="/help" className="text-gray-300 hover:text-white text-sm">
+            Help
+          </Link>
         </div>
       </div>
       

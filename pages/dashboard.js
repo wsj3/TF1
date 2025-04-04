@@ -13,68 +13,63 @@ const MOCK_DEV_USER = {
   isAdmin: true
 };
 
+// Sample AI discoveries data - in a real application, this would come from an API
+const aiDiscoveries = [
+  {
+    id: 1,
+    title: "New Research on CBT Effectiveness for Anxiety Disorders",
+    description: "Recent meta-analysis shows 15% improvement in recovery rates with modified CBT approach",
+    date: "2025-03-04",
+    type: "research",
+    url: "/insights/cbt-effectiveness"
+  },
+  {
+    id: 2,
+    title: "Therapy Session Scheduling Optimization",
+    description: "Analysis of your scheduling patterns suggests Tuesday mornings have 30% higher client engagement",
+    date: "2025-03-02",
+    type: "insight",
+    url: "/insights/scheduling-optimization"
+  },
+  {
+    id: 3,
+    title: "Emerging Treatment for PTSD Shows Promise",
+    description: "Journal of Psychiatric Research publishes breakthrough study on EMDR combined with virtual reality",
+    date: "2025-02-28",
+    type: "news",
+    url: "/insights/ptsd-treatment-advances"
+  }
+];
+
 // The main dashboard component
 function Dashboard() {
   const { user, loading } = useAuth();
   const [isClient, setIsClient] = useState(false);
   const [dashboardLoaded, setDashboardLoaded] = useState(false);
-  // Use the mock user in development if no user is present
-  const [devUser, setDevUser] = useState(null);
+  
+  // In development, immediately provide a mock user without waiting
+  const isDev = process.env.NODE_ENV === 'development';
+  // Use the mock user in development
+  const effectiveUser = isDev ? (user || MOCK_DEV_USER) : user;
 
-  // Safely set client-side rendering flag and set up development user if needed
+  // Safely set client-side rendering flag
   useEffect(() => {
     setIsClient(true);
     
-    // For development, if no user is found after a delay, use a mock user
-    if (process.env.NODE_ENV === 'development' && !user && !loading) {
+    // Mark dashboard as loaded immediately in development mode
+    if (isDev) {
+      setDashboardLoaded(true);
+    } else {
+      // In production, wait a bit to ensure all components are mounted
       const timer = setTimeout(() => {
-        console.log('[Dashboard] Using mock user for development');
-        setDevUser(MOCK_DEV_USER);
-      }, 300);
+        setDashboardLoaded(true);
+      }, 100);
       return () => clearTimeout(timer);
     }
-    
-    // Mark dashboard as loaded after a delay to ensure all components are mounted
-    const timer = setTimeout(() => {
-      setDashboardLoaded(true);
-    }, 100);
-    
-    return () => clearTimeout(timer);
-  }, [user, loading]);
+  }, [isDev]);
 
-  // Get the effective user (real user or dev mock user)
-  const effectiveUser = user || devUser;
-
-  // Sample AI discoveries data - in a real application, this would come from an API
-  const aiDiscoveries = [
-    {
-      id: 1,
-      title: "New Research on CBT Effectiveness for Anxiety Disorders",
-      description: "Recent meta-analysis shows 15% improvement in recovery rates with modified CBT approach",
-      date: "2025-03-04",
-      type: "research",
-      url: "/insights/cbt-effectiveness"
-    },
-    {
-      id: 2,
-      title: "Therapy Session Scheduling Optimization",
-      description: "Analysis of your scheduling patterns suggests Tuesday mornings have 30% higher client engagement",
-      date: "2025-03-02",
-      type: "insight",
-      url: "/insights/scheduling-optimization"
-    },
-    {
-      id: 3,
-      title: "Emerging Treatment for PTSD Shows Promise",
-      description: "Journal of Psychiatric Research publishes breakthrough study on EMDR combined with virtual reality",
-      date: "2025-02-28",
-      type: "news",
-      url: "/insights/ptsd-treatment-advances"
-    }
-  ];
-  
-  // Simple loading state for server-side or during hydration
-  if (!isClient || (loading && !devUser)) {
+  // Simple loading state for server-side rendering only
+  if (!isClient) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
         <Head>
@@ -85,34 +80,7 @@ function Dashboard() {
     );
   }
   
-  // If user isn't authenticated yet but we're client-side, show loading or use mock dev user
-  if (!effectiveUser) {
-    // In development, we'll show a loading message briefly before the mock user kicks in
-    if (process.env.NODE_ENV === 'development') {
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-900">
-          <Head>
-            <title>Loading Dashboard | Therapist's Friend</title>
-          </Head>
-          <div className="text-white">
-            <p>Development mode: Initializing dashboard...</p>
-            <div className="mt-2 animate-pulse h-2 bg-blue-500 rounded w-48 mx-auto"></div>
-          </div>
-        </div>
-      );
-    }
-    
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <Head>
-          <title>Loading Dashboard | Therapist's Friend</title>
-        </Head>
-        <div className="text-white">Checking authentication...</div>
-      </div>
-    );
-  }
-  
-  // Main dashboard content
+  // Main dashboard content - in development, we always render
   return (
     <>
       <Head>
@@ -121,6 +89,14 @@ function Dashboard() {
       </Head>
       <CustomLayout title="Dashboard | Therapist's Friend">
         <div className="py-6">
+          {isDev && (
+            <div className="max-w-7xl mx-auto px-4 mb-4">
+              <div className="bg-blue-900 text-white px-4 py-2 rounded-md text-sm">
+                Development Mode: Using mock user data
+              </div>
+            </div>
+          )}
+          
           <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
             <h1 className="text-2xl font-semibold text-white">Dashboard</h1>
           </div>
@@ -260,59 +236,57 @@ function Dashboard() {
             </div>
             
             {/* Recent Discoveries and Insights Section */}
-            {dashboardLoaded && (
-              <div className="mt-10">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold text-white">Recent Discoveries and Insights</h2>
-                  <a href="/insights" className="text-sm font-medium text-blue-400 hover:text-blue-300">
-                    View all insights
-                  </a>
-                </div>
-                
-                <div className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                  {aiDiscoveries.map((discovery) => (
-                    <div key={discovery.id} className="bg-gray-800 rounded-lg shadow overflow-hidden hover:bg-gray-750 transition-colors duration-200">
-                      <div className="p-5">
-                        <div className="flex items-start">
-                          <div className="flex-shrink-0">
-                            {discovery.type === 'research' && (
-                              <div className="bg-indigo-500 rounded-md p-2">
-                                <svg className="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                </svg>
-                              </div>
-                            )}
-                            {discovery.type === 'news' && (
-                              <div className="bg-blue-500 rounded-md p-2">
-                                <svg className="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
-                                </svg>
-                              </div>
-                            )}
-                            {discovery.type === 'insight' && (
-                              <div className="bg-emerald-500 rounded-md p-2">
-                                <svg className="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                </svg>
-                              </div>
-                            )}
-                          </div>
-                          <div className="ml-4">
-                            <h3 className="text-lg font-medium text-white">
-                              <a href={discovery.url} className="hover:underline">
-                                {discovery.title}
-                              </a>
-                            </h3>
-                            <p className="mt-1 text-sm text-gray-400">{discovery.description}</p>
-                            <p className="mt-2 text-xs text-gray-500">{discovery.date}</p>
-                          </div>
+            <div className="mt-10">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-white">Recent Discoveries and Insights</h2>
+                <a href="/insights" className="text-sm font-medium text-blue-400 hover:text-blue-300">
+                  View all insights
+                </a>
+              </div>
+              
+              <div className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                {aiDiscoveries.map((discovery) => (
+                  <div key={discovery.id} className="bg-gray-800 rounded-lg shadow overflow-hidden hover:bg-gray-750 transition-colors duration-200">
+                    <div className="p-5">
+                      <div className="flex items-start">
+                        <div className="flex-shrink-0">
+                          {discovery.type === 'research' && (
+                            <div className="bg-indigo-500 rounded-md p-2">
+                              <svg className="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                              </svg>
+                            </div>
+                          )}
+                          {discovery.type === 'news' && (
+                            <div className="bg-blue-500 rounded-md p-2">
+                              <svg className="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                              </svg>
+                            </div>
+                          )}
+                          {discovery.type === 'insight' && (
+                            <div className="bg-emerald-500 rounded-md p-2">
+                              <svg className="h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                        <div className="ml-4">
+                          <h3 className="text-lg font-medium text-white">
+                            <a href={discovery.url} className="hover:underline">
+                              {discovery.title}
+                            </a>
+                          </h3>
+                          <p className="mt-1 text-sm text-gray-400">{discovery.description}</p>
+                          <p className="mt-2 text-xs text-gray-500">{discovery.date}</p>
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
-            )}
+            </div>
           </div>
         </div>
       </CustomLayout>
@@ -320,5 +294,7 @@ function Dashboard() {
   );
 }
 
-// Export with auth protection
-export default withPageAuth(Dashboard); 
+// For development, we can bypass the auth HOC entirely
+export default process.env.NODE_ENV === 'development' 
+  ? Dashboard 
+  : withPageAuth(Dashboard); 

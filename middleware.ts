@@ -18,13 +18,28 @@ if (
   console.log('[middleware] Setting global.isStaticExport = true');
 }
 
+/**
+ * Checks if the current context is a static export
+ * This function is duplicated from utils/static-export.js since imports are not allowed in middleware
+ */
+function isStaticExport() {
+  return (
+    // Global flag set above
+    global.isStaticExport === true ||
+    // Environment variables
+    process.env.STATIC_EXPORT === 'true' || 
+    process.env.DOCKER_BUILD === 'true' ||
+    process.env.IS_EXPORT === 'true' ||
+    // Build phase detection
+    process.env.NODE_ENV === 'production' && 
+    process.env.NEXT_PHASE === 'phase-production-build'
+  );
+}
+
 export function middleware(request: NextRequest) {
   try {
     // Force skip for all static exports - highest priority check
-    if (process.env.STATIC_EXPORT === 'true' || 
-        process.env.DOCKER_BUILD === 'true' ||
-        process.env.IS_EXPORT === 'true' ||
-        global.isStaticExport === true) {
+    if (isStaticExport()) {
       console.log('[middleware] Bypassing auth - static export environment detected');
       return NextResponse.next();
     }

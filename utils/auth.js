@@ -9,6 +9,27 @@ import { PrismaClient } from '@prisma/client';
 import cookie from 'cookie';
 import { useRouter } from 'next/router';
 
+// Import static export helper if available
+let isStaticExport = false;
+try {
+  const staticExportModule = require('./static-export');
+  isStaticExport = staticExportModule.IS_STATIC_EXPORT || false;
+} catch (e) {
+  // Module doesn't exist yet, that's ok
+}
+
+// Helper to detect static export in various ways
+function checkIsStaticExport() {
+  return (
+    isStaticExport || 
+    process.env.STATIC_EXPORT === 'true' || 
+    process.env.DOCKER_BUILD === 'true' ||
+    process.env.IS_EXPORT === 'true' ||
+    process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE === 'phase-production-build' ||
+    typeof window !== 'undefined' && window.__NEXT_DATA__?.nextExport === true
+  );
+}
+
 const prisma = new PrismaClient();
 
 // Create auth context
@@ -35,6 +56,13 @@ export function AuthProvider({ children }) {
 
   // Function to get current session
   const getSession = async () => {
+    // Skip actual fetching during static export to prevent errors
+    if (checkIsStaticExport()) {
+      console.log('[Auth] Bypassing session fetch during static export');
+      setLoading(false);
+      return null;
+    }
+
     try {
       setLoading(true);
       const res = await fetch('/api/auth/session');
@@ -64,6 +92,13 @@ export function AuthProvider({ children }) {
 
   // Function to login user
   const login = async (email, password) => {
+    // Skip login during static export
+    if (checkIsStaticExport()) {
+      console.log('[Auth] Bypassing login during static export');
+      setLoading(false);
+      return false;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -94,6 +129,13 @@ export function AuthProvider({ children }) {
 
   // Function to logout user
   const logout = async () => {
+    // Skip logout during static export
+    if (checkIsStaticExport()) {
+      console.log('[Auth] Bypassing logout during static export');
+      setLoading(false);
+      return false;
+    }
+
     try {
       setLoading(true);
       const res = await fetch('/api/auth/logout', {
@@ -119,8 +161,21 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Check session on initial load, but skip on auth pages
+  // Check session on initial load, but skip on auth pages and during static export
   useEffect(() => {
+    // Skip session check entirely during static export
+    if (checkIsStaticExport()) {
+      console.log('[Auth] Skipping initial session check during static export');
+      setLoading(false);
+      return;
+    }
+
+    // Only check session on client-side, not during server-side rendering
+    if (typeof window === 'undefined') {
+      setLoading(false);
+      return;
+    }
+
     const path = window.location.pathname;
     if (!path.startsWith('/auth/')) {
       getSession();
@@ -161,15 +216,24 @@ export function withPageAuth(Component) {
       setMounted(true);
     }, []);
 
+    // Detect static export
+    const isExportBuild = checkIsStaticExport();
+
+    // Skip authentication during static export
+    if (isExportBuild) {
+      console.log('[withPageAuth] Bypassing auth for static build');
+      return <Component {...props} />;
+    }
+
     useEffect(() => {
-      if (mounted && !loading && !user) {
+      if (mounted && !loading && !user && !isExportBuild) {
         sessionStorage.setItem('redirectAfterLogin', router.asPath);
         router.push('/auth/signin');
       }
-    }, [user, loading, mounted, router]);
+    }, [user, loading, mounted, router, isExportBuild]);
 
     // Show loading state
-    if (loading || !mounted) {
+    if ((loading || !mounted) && !isExportBuild) {
       return (
         <div className="flex items-center justify-center min-h-screen">
           <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
@@ -177,14 +241,20 @@ export function withPageAuth(Component) {
       );
     }
 
-    // Show page if user is authenticated
-    return user ? <Component {...props} /> : null;
+    // Show page if user is authenticated or during static export
+    return (isExportBuild || user) ? <Component {...props} /> : null;
   };
 }
 
 // API route protection
 export function withApiAuth(handler) {
   return async (req, res) => {
+    // Skip authentication during static export
+    if (checkIsStaticExport()) {
+      console.log('[withApiAuth] Bypassing auth for static build');
+      return handler(req, res);
+    }
+
     try {
       const cookies = parse(req.headers.cookie || '');
       const token = cookies[authConfig.cookieName];

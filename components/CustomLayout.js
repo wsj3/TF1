@@ -3,9 +3,50 @@ import { useAuth } from '../utils/auth';
 import Sidebar from './Sidebar';
 import CustomTopNav from './CustomTopNav';
 
+// Import static export helper if available
+let isStaticExport = false;
+try {
+  const staticExportModule = require('../utils/static-export');
+  isStaticExport = staticExportModule.IS_STATIC_EXPORT || false;
+} catch (e) {
+  // Module doesn't exist yet, that's ok
+}
+
+// Helper to detect static export in various ways
+function checkIsStaticExport() {
+  return (
+    isStaticExport || 
+    process.env.STATIC_EXPORT === 'true' || 
+    process.env.DOCKER_BUILD === 'true' ||
+    process.env.IS_EXPORT === 'true' ||
+    process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE === 'phase-production-build' ||
+    typeof window !== 'undefined' && window.__NEXT_DATA__?.nextExport === true
+  );
+}
+
 export default function CustomLayout({ children, title = 'Therapist\'s Friend' }) {
   const { user } = useAuth();
   const isAuthenticated = !!user;
+  const isExport = checkIsStaticExport();
+
+  // During static export, always render content without authentication checks
+  if (isExport) {
+    console.log('[CustomLayout] Static export detected, bypassing auth checks');
+    return (
+      <div className="min-h-screen bg-gray-900">
+        <Head>
+          <title>{title}</title>
+          <meta name="description" content="Therapist's Friend - Practice Management" />
+          <link rel="icon" href="/favicon.ico" />
+        </Head>
+        
+        {/* Skip sidebar and topnav during export */}
+        <main className="min-h-screen bg-gray-900">
+          {children}
+        </main>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return (

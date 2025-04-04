@@ -19,33 +19,108 @@ export default function ElevenLabsWidget() {
     setIsLoaded(true);
   };
 
-  // Handle when widget might fail to load
+  // Initialize the widget
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // In development mode, try to load the script manually with a retry mechanism
+    if (isDev) {
+      const loadScript = async () => {
+        try {
+          const script = document.createElement('script');
+          script.src = "https://elevenlabs.io/convai-widget/index.js";
+          script.async = true;
+          
+          script.onload = () => {
+            console.log('ElevenLabs widget script loaded manually');
+            setIsLoaded(true);
+          };
+          
+          script.onerror = () => {
+            console.error('Error loading ElevenLabs widget script manually');
+            setHasError(true);
+          };
+          
+          document.body.appendChild(script);
+        } catch (error) {
+          console.error('Failed to load ElevenLabs script:', error);
+          setHasError(true);
+        }
+      };
+      
+      loadScript();
+    }
+
     // Set a timeout to mark as error if it takes too long to load
     const timeoutId = setTimeout(() => {
       if (!isLoaded) {
+        console.warn('ElevenLabs widget loading timed out');
         setHasError(true);
       }
-    }, 8000);
+    }, 10000); // Increased timeout
 
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [isLoaded]);
+  }, [isLoaded, isDev]);
 
-  // Show a fallback if the widget fails to load
-  if (hasError) {
+  // Show a better-looking fallback for development mode
+  if (isDev) {
     return (
-      <div className="p-3 rounded-md">
-        <div className="text-center">
-          <p className="text-sm text-white font-medium mb-1">AI Assistant</p>
-          <p className="text-xs text-gray-300">Temporarily unavailable</p>
+      <div className="p-4 rounded-md border border-gray-700 bg-gray-800">
+        <div className="flex items-center mb-3">
+          <div className="h-8 w-8 bg-blue-600 rounded-full flex items-center justify-center mr-3">
+            <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="font-medium text-white text-sm">AI Assistant</h3>
+            <p className="text-gray-400 text-xs">Development Mode</p>
+          </div>
+        </div>
+        <div className="bg-gray-700 rounded-md p-3 mb-2">
+          <p className="text-gray-200 text-sm">Hello! How can I help you with your therapy practice today?</p>
+        </div>
+        <div className="relative">
+          <input 
+            type="text" 
+            placeholder="Type your question here..." 
+            className="w-full rounded-md bg-gray-700 border-gray-600 text-white px-3 py-2 text-sm"
+            disabled={true}
+          />
+          <button className="absolute right-2 top-2 text-blue-400">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+          </button>
+        </div>
+        <div className="mt-2 text-center">
+          <p className="text-xs text-gray-400">Widget simulated in development mode</p>
         </div>
       </div>
     );
   }
 
-  // Direct embedding of widget for both development and production
+  // Show a fallback if the widget fails to load in production
+  if (hasError) {
+    return (
+      <div className="p-3 rounded-md border border-gray-700">
+        <div className="text-center">
+          <h4 className="text-sm text-white font-medium mb-1">AI Assistant</h4>
+          <p className="text-xs text-gray-300 mb-2">Temporarily unavailable</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Production widget embedding
   return (
     <div className="relative p-1 overflow-hidden" style={{ minHeight: "300px" }}>
       <style jsx global>{`

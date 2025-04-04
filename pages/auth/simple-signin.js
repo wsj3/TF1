@@ -14,33 +14,70 @@ export default function SimpleSignIn() {
   const router = useRouter();
   const { login } = useAuth();
 
+  const validateForm = () => {
+    if (!email) {
+      setError('Email is required');
+      return false;
+    }
+    if (!password) {
+      setError('Password is required');
+      return false;
+    }
+    if (!email.includes('@')) {
+      setError('Please enter a valid email address');
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
     setError('');
+
+    // Form validation
+    if (!validateForm()) {
+      return;
+    }
+
+    console.log('Attempting login with:', { email }); // Debug log
+    setIsLoading(true);
 
     try {
       // Use our custom login function
       const success = await login(email, password);
       
+      console.log('Login response:', { success }); // Debug log
+      
       if (success) {
-        // Navigate to dashboard on success
+        console.log('Login successful, redirecting...'); // Debug log
         router.push('/dashboard');
       } else {
+        console.log('Login failed'); // Debug log
         setError('Login failed. Please check your credentials.');
       }
     } catch (err) {
       console.error('Sign in error:', err);
-      setError('An unexpected error occurred');
+      setError(err.message || 'An unexpected error occurred');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Auto-correct common email domain mistakes
+  const handleEmailChange = (e) => {
+    let value = e.target.value;
+    // If someone types .org instead of .com for therapistsfriend domain
+    if (value.endsWith('@therapistsfriend.org')) {
+      value = value.replace('@therapistsfriend.org', '@therapistsfriend.com');
+    }
+    setEmail(value);
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
       <Head>
         <title>Simple Sign In | Therapist's Friend</title>
+        <meta name="robots" content="noindex, nofollow" />
       </Head>
 
       <div className="max-w-md w-full space-y-8">
@@ -70,7 +107,7 @@ export default function SimpleSignIn() {
                 autoComplete="email"
                 required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={handleEmailChange}
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-700 bg-gray-800 text-white placeholder-gray-400 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="Email address"
               />

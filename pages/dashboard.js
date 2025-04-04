@@ -1,10 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import CustomLayout from '../components/CustomLayout';
-import { withAuth, useAuth } from '../utils/auth';
+import { useAuth } from '../utils/auth';
 
 // The main dashboard component
 function Dashboard() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Show loading state while checking auth or during hydration
+  if (!isClient || loading || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="text-white">Loading dashboard...</div>
+      </div>
+    );
+  }
   
   // Sample AI discoveries data - in a real application, this would come from an API
   const aiDiscoveries = [
@@ -34,15 +48,6 @@ function Dashboard() {
     }
   ];
   
-  // Simple loading state
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <div className="text-white">Loading dashboard...</div>
-      </div>
-    );
-  }
-  
   return (
     <CustomLayout title="Dashboard | Therapist's Friend">
       <div className="py-6">
@@ -54,7 +59,7 @@ function Dashboard() {
           {/* Welcome Card */}
           <div className="mt-6 bg-gray-800 rounded-lg shadow overflow-hidden">
             <div className="p-6">
-              <h2 className="text-lg font-medium text-white">Welcome, {user.name}!</h2>
+              <h2 className="text-lg font-medium text-white">Welcome, {user?.name || 'User'}!</h2>
               <p className="mt-1 text-sm text-gray-400">
                 Here's your therapy practice at a glance
               </p>
@@ -242,5 +247,5 @@ function Dashboard() {
   );
 }
 
-// Use our custom auth wrapper
-export default withAuth(Dashboard); 
+// Export the component without the withAuth HOC since we're handling auth in the component
+export default Dashboard; 

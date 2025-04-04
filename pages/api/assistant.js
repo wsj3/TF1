@@ -1,105 +1,119 @@
-import { Configuration, OpenAIApi } from 'openai';
+/**
+ * AI Assistant API Endpoint
+ * 
+ * This endpoint handles all interactions with the AI assistant using the agent framework.
+ * It processes user messages, handles tool calls, and returns AI responses.
+ */
 
-// Initialize OpenAI configuration
-const getOpenAIConfig = () => {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    console.warn('OpenAI API key not found. Using demo mode.');
-    return null;
+import { getLogger } from '../../utils/logger';
+import { AIAgent } from '../../utils/aiFramework/agentFramework';
+import { getIronSession } from 'iron-session';
+import { ironOptions } from '../../lib/config';
+
+const logger = getLogger('assistant-api');
+
+// Create a singleton agent instance
+let agentInstance = null;
+const getAgent = () => {
+  if (!agentInstance) {
+    logger.info('Creating new AIAgent instance');
+    agentInstance = new AIAgent();
   }
-
-  return new Configuration({
-    apiKey: apiKey,
-  });
+  return agentInstance;
 };
 
 export default async function handler(req, res) {
-  // Only allow POST requests
   if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method not allowed' });
+    logger.warn('Method not allowed:', req.method);
+    return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
   try {
-    const { prompt, temperature = 0.7, interfaceType = 'Text Interface', guidanceTypes = null } = req.body;
-
-    // Check if prompt is provided
-    if (!prompt) {
-      return res.status(400).json({ message: 'Prompt is required' });
-    }
-
-    // Configure system message based on interface type
-    let systemMessage = 'You are an AI assistant helping a therapist with their practice.';
+    // Skip authentication for development/demo mode
+    const skipAuth = process.env.NODE_ENV === 'development' || 
+                     process.env.ALLOW_DEMO_MODE === 'true';
     
-    if (interfaceType === 'Voice Interface') {
-      systemMessage += ' Respond in a way that sounds natural when spoken aloud.';
-    } else if (interfaceType === 'Avatar Interface') {
-      systemMessage += ' Keep responses brief and conversational.';
+    if (!skipAuth) {
+      // Authenticate the user with Iron Session
+      const session = await getIronSession(req, res, ironOptions);
+      
+      // Check if user is authenticated
+      if (!session.user?.id) {
+        logger.warn('Unauthorized attempt to access assistant API');
+        return res.status(401).json({ 
+          success: false, 
+          error: 'Unauthorized. Please sign in.' 
+        });
+      }
+    } else {
+      logger.info('Bypassing authentication for development/demo mode');
     }
     
-    // Add guidance types to the system message if provided
-    if (guidanceTypes) {
-      const activeRoles = [];
-      
-      if (guidanceTypes.mentor) {
-        activeRoles.push('a mentor who provides wisdom and guidance');
-        systemMessage += ' Focus on providing wise guidance and thoughtful advice based on your knowledge.';
-      }
-      
-      if (guidanceTypes.scientist) {
-        activeRoles.push('a scientist focused on evidence and research');
-        systemMessage += ' Ground your responses in empirical evidence and clinical research when available.';
-      }
-      
-      if (guidanceTypes.friend) {
-        activeRoles.push('a supportive friend');
-        systemMessage += ' Be warm, empathetic, and supportive in your interactions.';
-      }
-      
-      if (guidanceTypes.assistant) {
-        activeRoles.push('a task-oriented assistant');
-        systemMessage += ' Be direct, efficient, and practical in helping with tasks.';
-      }
-      
-      if (guidanceTypes.peer) {
-        activeRoles.push('a professional peer');
-        systemMessage += ' Interact as a professional equal, focusing on collaboration and shared expertise.';
-      }
-      
-      if (activeRoles.length > 0) {
-        systemMessage = `You are an AI assistant helping a therapist with their practice. Act as ${activeRoles.join(' and ')}.`;
-      }
-    }
-
-    // Check if demo mode is needed (no API key)
-    const configuration = getOpenAIConfig();
-    if (!configuration) {
-      // Return a demo response
-      return res.status(200).json({
-        message: 'This is a demo response because the OpenAI API key is not configured. In production, this would be a real response from the AI model.',
+    logger.info('Assistant API called, getting agent...');
+    
+    // Get the AI agent
+    const agent = getAgent();
+    if (!agent) {
+      logger.error('Failed to initialize AI agent');
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Failed to initialize AI agent' 
       });
     }
-
-    // Initialize OpenAI
-    const openai = new OpenAIApi(configuration);
-
-    // Call OpenAI API
-    const response = await openai.createChatCompletion({
-      model: 'gpt-3.5-turbo',
-      messages: [
-        { role: 'system', content: systemMessage },
-        { role: 'user', content: prompt }
-      ],
-      temperature: temperature,
-      max_tokens: 300,
+    
+    // Extract the messages from the request body
+    const { messages, conversationId = 'default', options = {} } = req.body;
+    
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      logger.warn('Invalid or empty messages array in request');
+      return res.status(400).json({
+        success: false,
+        error: 'Messages array is required'
+      });
+    }
+    
+    logger.debug('Request payload:', { 
+      messageCount: messages.length,
+      conversationId,
+      lastMessagePreview: messages[messages.length - 1]?.content?.substring(0, 50) + '...'
     });
-
-    // Extract the response text
-    const message = response.data.choices[0]?.message?.content || 'Sorry, I couldn\'t generate a response.';
-
+    
+    // Process the message with the agent
+    logger.info('Processing message with agent...');
+    const agentResponse = await agent.processMessage({
+      messages,
+      conversationId,
+      ...options
+    });
+    
+    // Check for a valid response
+    if (!agentResponse || !agentResponse.content) {
+      logger.error('Empty response from agent');
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to generate a response'
+      });
+    }
+    
+    logger.info('Successfully generated response');
+    logger.debug('Response preview:', agentResponse.content.substring(0, 100) + '...');
+    
     // Return the response
-    return res.status(200).json({ message });
+    return res.status(200).json({
+      success: true,
+      data: {
+        content: agentResponse.content,
+        toolCalls: agentResponse.toolCalls || [],
+        toolResults: agentResponse.toolResults || []
+      }
+    });
   } catch (error) {
-    console.error('Error in AI assistant API:', error);
-    return res.status(500).json({ message: 'Error processing your request', error: error.message });
+    logger.error('Error in assistant API:', error);
+    
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'An unknown error occurred',
+      details: process.env.NODE_ENV === 'development' ? error.toString() : undefined
+    });
   }
 } 

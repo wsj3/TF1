@@ -6,6 +6,12 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { format } from 'date-fns';
 import { useAuth } from '../utils/auth';
+import styles from '../styles/Calendar.module.css';
+
+// Import required FullCalendar CSS
+import '@fullcalendar/common/main.css';
+import '@fullcalendar/daygrid/main.css';
+import '@fullcalendar/timegrid/main.css';
 
 // Session status to color mapping
 const statusColors = {
@@ -19,9 +25,11 @@ export default function AppointmentCalendar({ onSessionClick, onDateSelect }) {
   const router = useRouter();
   const { user } = useAuth();
   const [sessions, setSessions] = useState([]);
+  const [events, setEvents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [upcomingAppointments, setUpcomingAppointments] = useState([]);
+  const [isInitialized, setIsInitialized] = useState(false);
   const calendarRef = useRef(null);
   // Add debug state for troubleshooting
   const [debugInfo, setDebugInfo] = useState({ visible: false, data: null });
@@ -31,11 +39,86 @@ export default function AppointmentCalendar({ onSessionClick, onDateSelect }) {
     setDebugInfo(prev => ({ ...prev, visible: !prev.visible }));
   };
 
+  // Process sessions into events
+  useEffect(() => {
+    if (!sessions || !Array.isArray(sessions)) {
+      setEvents([]);
+      return;
+    }
+
+    const processedEvents = [];
+    
+    for (const session of sessions) {
+      if (!session) continue;
+      
+      try {
+        // Ensure we have valid date objects
+        const startTime = new Date(session.startTime);
+        const endTime = new Date(session.endTime || new Date(startTime.getTime() + (session.duration || 60) * 60000));
+
+        if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+          console.error('Invalid date for session:', session);
+          continue;
+        }
+
+        // Create the event object with all required data
+        const event = {
+          id: String(session.id || ''),
+          title: String(session.clientName || 'No Client Name'),
+          start: startTime,
+          end: endTime,
+          backgroundColor: statusColors[session.status] || 'gray',
+          borderColor: statusColors[session.status] || 'gray',
+          extendedProps: {
+            status: String(session.status || 'SCHEDULED'),
+            clientId: String(session.clientId || ''),
+            type: String(session.type || 'Regular Session'),
+            notes: String(session.notes || ''),
+            duration: Number(session.duration || 60)
+          }
+        };
+
+        processedEvents.push(event);
+      } catch (error) {
+        console.error('Error formatting event:', error, session);
+      }
+    }
+
+    setEvents(processedEvents);
+  }, [sessions]);
+
   // Initial data fetch on component mount
   useEffect(() => {
-    if (user) {
-      fetchSessions(new Date());
-    }
+    let isMounted = true;
+
+    const initializeCalendar = async () => {
+      if (!user) {
+        if (isMounted) {
+          setIsLoading(false);
+          setIsInitialized(true);
+        }
+        return;
+      }
+
+      try {
+        await fetchSessions(new Date());
+        if (isMounted) {
+          setIsInitialized(true);
+        }
+      } catch (error) {
+        console.error('Error initializing calendar:', error);
+        if (isMounted) {
+          setError(error.message);
+          setIsInitialized(true);
+        }
+      }
+    };
+
+    initializeCalendar();
+
+    return () => {
+      isMounted = false;
+    };
   }, [user]);
 
   // Fetch sessions based on date
@@ -52,26 +135,11 @@ export default function AppointmentCalendar({ onSessionClick, onDateSelect }) {
       const startStr = format(start, 'yyyy-MM-dd');
       const endStr = format(end, 'yyyy-MM-dd');
       
-      console.log(`Fetching sessions from ${startStr} to ${endStr}`);
-      
-      // Check for staging/vercel environment and force demo mode if needed
       const isStaging = typeof window !== 'undefined' && 
                        (window.location.hostname.includes('staging') || 
                         window.location.hostname.includes('vercel.app'));
       
-      // Add demo mode query parameter for testing without authentication
       const isDemoMode = router.query.demo === 'true' || isStaging;
-      
-      // Debug information for troubleshooting
-      setDebugInfo(prev => ({
-        ...prev,
-        data: {
-          fetchStarted: new Date().toISOString(),
-          isStaging,
-          isDemoMode,
-          dateRange: { startStr, endStr }
-        }
-      }));
       
       const queryParams = new URLSearchParams({
         start: startStr,
@@ -81,47 +149,65 @@ export default function AppointmentCalendar({ onSessionClick, onDateSelect }) {
       
       const response = await fetch(`/api/sessions?${queryParams}`);
       
-      console.log('API Response status:', response.status);
-      
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error response from API:', errorText);
-        throw new Error(`API error: ${response.status} ${errorText}`);
+        throw new Error(`API error: ${response.status}`);
       }
       
       const data = await response.json();
-      console.log('Sessions data:', data);
-      
-      // Store response for debugging
-      setDebugInfo(prev => ({ ...prev, data }));
-      
-      // Handle both response formats - array or {sessions: []}
       const sessionsArray = Array.isArray(data) ? data : data.sessions || [];
-      console.log('Sessions array:', sessionsArray);
       
-      setSessions(sessionsArray);
+      // Process the sessions synchronously
+      const processedSessions = sessionsArray
+        .map(session => {
+          if (!session) return null;
+          
+          try {
+            const client = session.Client || session.client || {};
+            const clientName = `${client.firstName || ''} ${client.lastName || ''}`.trim() || 'No Client Name';
+            const startTime = new Date(session.startTime);
+            const endTime = session.endTime 
+              ? new Date(session.endTime)
+              : new Date(startTime.getTime() + (session.duration || 60) * 60000);
+
+            if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+              console.error('Invalid date for session:', session);
+              return null;
+            }
+
+            return {
+              ...session,
+              id: String(session.id || ''),
+              clientName: String(clientName),
+              startTime,
+              endTime,
+              status: String(session.status || 'SCHEDULED'),
+              type: String(session.type || 'Regular Session'),
+              duration: Number(session.duration || 60)
+            };
+          } catch (error) {
+            console.error('Error processing session:', error, session);
+            return null;
+          }
+        })
+        .filter(Boolean);
+
+      setSessions(processedSessions);
       
-      // Extract upcoming appointments for sidebar
-      const upcoming = sessionsArray
-        .filter(session => new Date(session.startTime) > new Date() && session.status === 'SCHEDULED')
-        .sort((a, b) => new Date(a.startTime) - new Date(b.startTime))
+      const upcoming = processedSessions
+        .filter(session => session.startTime > new Date() && session.status === 'SCHEDULED')
+        .sort((a, b) => a.startTime - b.startTime)
         .slice(0, 5);
       
       setUpcomingAppointments(upcoming);
-      setIsLoading(false);
+      setError(null);
+      
     } catch (error) {
       console.error('Error fetching sessions:', error);
       setError(error.message);
+      setSessions([]);
+      setUpcomingAppointments([]);
+    } finally {
       setIsLoading(false);
-      
-      // Store error info for debugging
-      setDebugInfo(prev => ({ 
-        ...prev, 
-        error: {
-          message: error.message,
-          stack: error.stack,
-        }
-      }));
     }
   };
 
@@ -129,33 +215,6 @@ export default function AppointmentCalendar({ onSessionClick, onDateSelect }) {
   const handleDatesSet = async (dateInfo) => {
     const calendarDate = new Date(dateInfo.start);
     fetchSessions(calendarDate);
-  };
-
-  // Format event data for the calendar
-  const getEvents = () => {
-    return sessions.map(session => {
-      // Handle both capitalization cases for clients
-      const client = session.Client || session.client || {};
-      
-      const clientName = client 
-        ? `${client.firstName || ''} ${client.lastName || ''}`.trim() 
-        : 'No Client Name';
-
-      return {
-        id: session.id,
-        title: clientName,
-        start: session.startTime,
-        end: session.endTime,
-        backgroundColor: statusColors[session.status] || 'gray',
-        borderColor: statusColors[session.status] || 'gray',
-        extendedProps: {
-          status: session.status,
-          clientId: session.clientId,
-          client,
-          notes: session.notes || '',
-        }
-      };
-    });
   };
 
   // Handle event click
@@ -197,6 +256,174 @@ export default function AppointmentCalendar({ onSessionClick, onDateSelect }) {
     if (!dateTime) return '';
     return format(new Date(dateTime), 'MMMM d, yyyy');
   };
+
+  // Update the renderEventContent function to show more appointment details
+  const renderEventContent = (eventInfo) => {
+    if (!eventInfo?.event) {
+      return null;
+    }
+
+    try {
+      const { event } = eventInfo;
+      const startDate = event.start instanceof Date ? event.start : new Date(event.start);
+      const endDate = event.end instanceof Date ? event.end : new Date(event.end);
+
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        return null;
+      }
+
+      const startTime = format(startDate, 'h:mm a');
+      const endTime = format(endDate, 'h:mm a');
+      const title = String(event.title || 'Untitled');
+      const status = String(event.extendedProps?.status || 'UNKNOWN');
+      const type = event.extendedProps?.type ? String(event.extendedProps.type) : null;
+      const notes = event.extendedProps?.notes;
+
+      return (
+        <div className="event-content h-full">
+          <div className="flex flex-col h-full justify-between">
+            <div>
+              <div className="font-medium text-base mb-1">{title}</div>
+              <div className="text-sm opacity-90 flex items-center mb-1">
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {startTime} - {endTime}
+              </div>
+              {type && (
+                <div className="text-sm opacity-75 flex items-center mb-1">
+                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                  {type}
+                </div>
+              )}
+            </div>
+            
+            <div className="mt-auto">
+              {notes && (
+                <div className="text-xs opacity-75 mb-2 line-clamp-2">
+                  {notes}
+                </div>
+              )}
+              <div className={`text-xs px-2 py-1 rounded-full inline-flex items-center ${
+                status === 'SCHEDULED' ? 'bg-blue-900 text-blue-200' :
+                status === 'COMPLETED' ? 'bg-green-900 text-green-200' :
+                status === 'CANCELLED' ? 'bg-red-900 text-red-200' :
+                status === 'NO_SHOW' ? 'bg-orange-900 text-orange-200' :
+                'bg-gray-700 text-gray-300'
+              }`}>
+                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {status === 'SCHEDULED' ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  ) : status === 'COMPLETED' ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  ) : status === 'CANCELLED' ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  )}
+                </svg>
+                {status}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    } catch (error) {
+      console.error('Error rendering event content:', error);
+      return null;
+    }
+  };
+
+  // Simplified calendar options focusing on time range
+  const calendarOptions = {
+    plugins: [timeGridPlugin, interactionPlugin],
+    initialView: 'timeGridWeek',
+    headerToolbar: {
+      left: 'prev,next today',
+      center: 'title',
+      right: 'timeGridWeek,timeGridDay'
+    },
+    // Core time settings
+    slotMinTime: '07:00:00',
+    slotMaxTime: '18:00:00',
+    scrollTime: '07:00:00',
+    slotDuration: '00:30:00',
+    allDaySlot: false,
+    
+    // Essential display settings
+    height: 'auto',
+    expandRows: true,
+    handleWindowResize: true,
+    nowIndicator: true,
+    
+    // Event settings
+    events: events,
+    eventContent: renderEventContent,
+    eventDisplay: 'block',
+    eventMinHeight: 80,
+    
+    // Interaction settings
+    selectable: true,
+    selectMirror: true,
+    selectConstraint: 'businessHours',
+    
+    // Business hours to constrain both display and selection
+    businessHours: {
+      daysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+      startTime: '07:00',
+      endTime: '18:00',
+    },
+    
+    // Event handlers
+    datesSet: handleDatesSet,
+    eventClick: handleEventClick,
+    select: handleDateSelect,
+    
+    // View-specific settings
+    views: {
+      timeGridWeek: {
+        type: 'timeGrid',
+        duration: { weeks: 1 },
+        slotDuration: '00:30:00',
+        slotMinTime: '07:00:00',
+        slotMaxTime: '18:00:00',
+        dayHeaderFormat: { weekday: 'long', month: 'numeric', day: 'numeric' },
+        slotLabelFormat: {
+          hour: 'numeric',
+          minute: '2-digit',
+          meridiem: 'short',
+          hour12: true
+        }
+      },
+      timeGridDay: {
+        type: 'timeGrid',
+        duration: { days: 1 },
+        slotDuration: '00:30:00',
+        slotMinTime: '07:00:00',
+        slotMaxTime: '18:00:00',
+        slotLabelFormat: {
+          hour: 'numeric',
+          minute: '2-digit',
+          meridiem: 'short',
+          hour12: true
+        }
+      }
+    }
+  };
+
+  // Only render the calendar once we're initialized
+  if (!isInitialized) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-900">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+          <p className="text-gray-400">Loading calendar...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col md:flex-row h-full bg-gray-900 text-gray-100 rounded-lg overflow-hidden">
@@ -322,118 +549,47 @@ export default function AppointmentCalendar({ onSessionClick, onDateSelect }) {
           </div>
         )}
         
-        {/* Calendar */}
-        <div className="calendar-container bg-gray-800 rounded-lg p-4 h-full">
+        {/* Calendar container */}
+        <div className="calendar-wrapper bg-gray-800 rounded-lg p-4">
           <FullCalendar
+            {...calendarOptions}
             ref={calendarRef}
-            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-            initialView="dayGridMonth"
-            headerToolbar={{
-              left: 'prev,next today',
-              center: 'title',
-              right: 'dayGridMonth,timeGridWeek,timeGridDay'
-            }}
-            businessHours={{
-              daysOfWeek: [1, 2, 3, 4, 5], // Monday - Friday
-              startTime: '09:00',
-              endTime: '17:00',
-            }}
-            selectable={true}
-            selectMirror={true}
-            dayMaxEvents={true}
-            weekends={true}
-            events={getEvents()}
-            datesSet={handleDatesSet}
-            eventClick={handleEventClick}
-            select={handleDateSelect}
-            height="auto"
-            // Custom styling
-            eventTimeFormat={{
-              hour: 'numeric',
-              minute: '2-digit',
-              meridiem: 'short'
-            }}
-            slotLabelFormat={{
-              hour: 'numeric',
-              minute: '2-digit',
-              hour12: true
-            }}
-            allDaySlot={false}
-            slotMinTime="07:00:00"
-            slotMaxTime="20:00:00"
           />
         </div>
       </div>
 
-      {/* Add custom styles for FullCalendar */}
+      {/* Essential styles only */}
       <style jsx global>{`
-        /* Dark theme styling for calendar */
-        .calendar-container .fc {
-          --fc-border-color: rgba(255, 255, 255, 0.1);
-          --fc-button-bg-color: #2d3748;
-          --fc-button-border-color: #2d3748;
-          --fc-button-hover-bg-color: #4a5568;
-          --fc-button-hover-border-color: #4a5568;
-          --fc-button-active-bg-color: #4a6cf7;
-          --fc-button-active-border-color: #4a6cf7;
-          --fc-event-bg-color: #4a6cf7;
-          --fc-event-border-color: #4a6cf7;
-          --fc-today-bg-color: rgba(74, 108, 247, 0.1);
-          --fc-now-indicator-color: #4a6cf7;
-          --fc-page-bg-color: #1a202c;
-          --fc-neutral-bg-color: #2d3748;
-          --fc-list-event-hover-bg-color: #2d3748;
-          --fc-highlight-color: rgba(74, 108, 247, 0.2);
+        .calendar-wrapper .fc {
+          height: 100%;
         }
         
-        .calendar-container .fc-theme-standard th,
-        .calendar-container .fc-theme-standard td {
-          border-color: rgba(255, 255, 255, 0.1);
+        .calendar-wrapper .fc-timegrid-slot {
+          height: 4rem;
         }
         
-        .calendar-container .fc-col-header,
-        .calendar-container .fc-daygrid-body {
-          width: 100% !important;
+        .calendar-wrapper .fc-timegrid-col {
+          min-width: 150px;
         }
         
-        .calendar-container .fc-scrollgrid {
-          border-color: rgba(255, 255, 255, 0.1);
+        /* Hide non-business hours completely */
+        .fc .fc-timegrid-slot.fc-timegrid-slot-lane:not([data-time^="07"]):not([data-time^="08"]):not([data-time^="09"]):not([data-time^="10"]):not([data-time^="11"]):not([data-time^="12"]):not([data-time^="13"]):not([data-time^="14"]):not([data-time^="15"]):not([data-time^="16"]):not([data-time^="17"]) {
+          display: none !important;
         }
         
-        .calendar-container .fc-day-today {
-          background-color: rgba(74, 108, 247, 0.1) !important;
-        }
-        
-        .calendar-container .fc-button-primary {
-          background-color: #2d3748;
-          border-color: #2d3748;
-          color: white;
-        }
-        
-        .calendar-container .fc-button-primary:hover {
-          background-color: #4a5568;
-          border-color: #4a5568;
-        }
-        
-        .calendar-container .fc-button-primary:not(:disabled).fc-button-active,
-        .calendar-container .fc-button-primary:not(:disabled):active {
-          background-color: #4a6cf7;
-          border-color: #4a6cf7;
-        }
-        
-        .calendar-container .fc-daygrid-day-number,
-        .calendar-container .fc-col-header-cell-cushion {
-          color: white;
-        }
-        
-        .calendar-container .fc-timegrid-slot-label-cushion,
-        .calendar-container .fc-list-day-text,
-        .calendar-container .fc-list-day-side-text {
-          color: #cbd5e0;
-        }
-        
-        .calendar-container .fc-timegrid-slot {
-          height: 2rem;
+        /* Ensure business hours are visible */
+        .fc .fc-timegrid-slot.fc-timegrid-slot-lane[data-time^="07"],
+        .fc .fc-timegrid-slot.fc-timegrid-slot-lane[data-time^="08"],
+        .fc .fc-timegrid-slot.fc-timegrid-slot-lane[data-time^="09"],
+        .fc .fc-timegrid-slot.fc-timegrid-slot-lane[data-time^="10"],
+        .fc .fc-timegrid-slot.fc-timegrid-slot-lane[data-time^="11"],
+        .fc .fc-timegrid-slot.fc-timegrid-slot-lane[data-time^="12"],
+        .fc .fc-timegrid-slot.fc-timegrid-slot-lane[data-time^="13"],
+        .fc .fc-timegrid-slot.fc-timegrid-slot-lane[data-time^="14"],
+        .fc .fc-timegrid-slot.fc-timegrid-slot-lane[data-time^="15"],
+        .fc .fc-timegrid-slot.fc-timegrid-slot-lane[data-time^="16"],
+        .fc .fc-timegrid-slot.fc-timegrid-slot-lane[data-time^="17"]) {
+          display: table-row !important;
         }
       `}</style>
     </div>

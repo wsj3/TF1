@@ -22,6 +22,60 @@ if ($confirmation -ne "yes") {
     exit 0
 }
 
+# Ask about database migrations
+Write-Host ""
+Write-Host "Do you want to run database migrations? (yes/no)" -ForegroundColor Yellow
+$runMigrations = Read-Host
+
+# Run Prisma DB migrations if selected
+if ($runMigrations -eq "yes") {
+    Write-Host "Running database migrations..." -ForegroundColor Yellow
+    
+    # Generate Prisma client
+    Write-Host "Generating Prisma client..." -ForegroundColor Yellow
+    npx prisma generate
+    
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Error: Failed to generate Prisma client." -ForegroundColor Red
+        exit 1
+    }
+    
+    # Ask for the staging database URL or use the one from .env.production
+    Write-Host "Enter the staging database URL (leave empty to use the one from .env.production):" -ForegroundColor Yellow
+    $dbUrl = Read-Host
+    
+    if ($dbUrl -eq "") {
+        # Extract the DATABASE_URL from .env.production
+        $envContent = Get-Content ".env.production" -ErrorAction SilentlyContinue
+        $dbUrlLine = $envContent | Where-Object { $_ -match "DATABASE_URL" } | Select-Object -First 1
+        
+        if ($dbUrlLine) {
+            $dbUrl = $dbUrlLine -replace "DATABASE_URL=", "" -replace '"', ''
+            Write-Host "Using database URL from .env.production" -ForegroundColor Yellow
+        } else {
+            Write-Host "Error: Could not find DATABASE_URL in .env.production" -ForegroundColor Red
+            exit 1
+        }
+    }
+    
+    # Set the environment variable for Prisma
+    $env:DATABASE_URL = $dbUrl
+    
+    # Run the migrations
+    Write-Host "Deploying database migrations..." -ForegroundColor Yellow
+    npx prisma migrate deploy
+    
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Error: Failed to deploy migrations." -ForegroundColor Red
+        exit 1
+    }
+    
+    Write-Host "Database migrations completed successfully." -ForegroundColor Green
+    
+    # Reset the environment variable
+    $env:DATABASE_URL = $null
+}
+
 # Build the application locally
 Write-Host "Building application for staging..." -ForegroundColor Yellow
 
@@ -75,12 +129,17 @@ scp -r public "${doUser}@${doHost}:${doPath}/"
 scp next.config.js "${doUser}@${doHost}:${doPath}/"
 scp .env.production "${doUser}@${doHost}:${doPath}/.env.local"
 
+# Copy Prisma files
+scp -r prisma "${doUser}@${doHost}:${doPath}/"
+
 # Run post-deployment commands on the server
 Write-Host "Finalizing deployment on staging server..." -ForegroundColor Yellow
 
 $finalizeCommands = @"
 cd $doPath
 npm install --production
+npm install @prisma/client
+npx prisma generate
 pm2 restart therapistsfriend || pm2 start npm --name therapistsfriend -- start
 echo 'Deployment completed successfully!'
 "@
@@ -103,4 +162,5 @@ Write-Host "1. Verify the application is working at https://staging.therapistsfr
 Write-Host "2. Check for any errors in the logs" -ForegroundColor Yellow
 Write-Host "3. Test authentication flows to ensure users can log in" -ForegroundColor Yellow
 Write-Host "4. Verify all features are working as expected" -ForegroundColor Yellow
+Write-Host "5. Test database functionality to ensure data is being stored correctly" -ForegroundColor Yellow
 Write-Host "" 

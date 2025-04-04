@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,4 +5,137 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model Client {
+  id            String          @id @default(uuid())
+  therapistId   String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  status        String          @default("ACTIVE")
+  appointments  Appointment[]
+  Billing       Billing[]
+  Goal          Goal[]
+  Note          Note[]
+  sessions      Session[]
+  Task          Task[]
+  TreatmentPlan TreatmentPlan[]
+}
+
+model Appointment {
+  id        String   @id @default(uuid())
+  startTime DateTime
+  endTime   DateTime
+  duration  Int
+  notes     String?
+  type      String?
+  status    String   @default("Scheduled")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id])
+}
+
+model Session {
+  id        String    @id @default(uuid())
+  clientId  String
+  startTime DateTime
+  endTime   DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  notes     String?
+  type      String?
+  status    String    @default("Scheduled")
+  Billing   Billing[]
+  client    Client    @relation(fields: [clientId], references: [id])
+}
+
+model Billing {
+  id            String   @id
+  clientId      String
+  sessionId     String?
+  amount        Float
+  description   String
+  date          DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime
+  invoiceNumber String?
+  status        String   @default("Pending")
+  Client        Client   @relation(fields: [clientId], references: [id])
+  Session       Session? @relation(fields: [sessionId], references: [id])
+}
+
+model Goal {
+  id          String    @id
+  title       String
+  description String?
+  targetDate  DateTime?
+  status      String    @default("In Progress")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime
+  clientId    String
+  Client      Client    @relation(fields: [clientId], references: [id])
+}
+
+model User {
+  id        String          @id @default(uuid())
+  email     String          @unique
+  name      String
+  password  String
+  role      String          @default("THERAPIST")
+  isAdmin   Boolean         @default(false)
+  status    String          @default("active")
+  lastLogin DateTime?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  notes     Note[]          @relation("CreatedBy")
+  plans     TreatmentPlan[] @relation("CreatedBy")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String
+  details   String?
+  createdAt DateTime @default(now())
+}
+
+model Note {
+  id          String   @id
+  content     String
+  type        String?  @default("general")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  clientId    String
+  createdById String
+  Client      Client   @relation(fields: [clientId], references: [id])
+  createdBy   User     @relation("CreatedBy", fields: [createdById], references: [id])
+}
+
+model Task {
+  id          String   @id
+  title       String
+  description String?
+  dueDate     DateTime
+  clientId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  assignedTo  String?
+  priority    String   @default("Medium")
+  status      String   @default("Pending")
+  Client      Client?  @relation(fields: [clientId], references: [id])
+}
+
+model TreatmentPlan {
+  id          String    @id
+  title       String
+  description String?
+  startDate   DateTime
+  endDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime
+  clientId    String
+  createdById String
+  Client      Client    @relation(fields: [clientId], references: [id])
+  createdBy   User      @relation("CreatedBy", fields: [createdById], references: [id])
 }

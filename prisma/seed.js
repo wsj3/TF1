@@ -4,8 +4,7 @@ const bcrypt = require('bcryptjs');
 
 // A proper hashing function using bcrypt
 async function hashPassword(password) {
-  const salt = await bcrypt.genSalt(10);
-  return bcrypt.hash(password, salt);
+  return bcrypt.hash(password, 10); // Use a simple salt round of 10
 }
 
 async function main() {
@@ -13,6 +12,22 @@ async function main() {
   
   // Clear existing data
   await clearDatabase();
+  
+  // Create admin user account
+  const adminUser = await prisma.user.create({
+    data: {
+      id: 'admin-user-id',
+      email: 'admin@therapistsfriend.com',
+      name: 'System Administrator',
+      password: await hashPassword('admin123'),
+      role: 'ADMIN',
+      isAdmin: true,
+      status: 'active',
+      updatedAt: new Date()
+    },
+  });
+  
+  console.log(`Created admin user: ${adminUser.email}`);
   
   // Create demo user account - This is the account you'll log in with
   const demoUser = await prisma.user.create({
@@ -22,19 +37,9 @@ async function main() {
       name: 'Demo Therapist',
       password: await hashPassword('demo123'),
       role: 'THERAPIST',
-      updatedAt: new Date(),
-      Profile: {
-        create: {
-          id: 'demo-profile-id',
-          title: 'Licensed Clinical Psychologist',
-          bio: 'Specializing in cognitive behavioral therapy with 10+ years of experience working with anxiety, depression, and trauma.',
-          specialties: ['Anxiety', 'Depression', 'PTSD', 'CBT', 'Mindfulness'],
-          phoneNumber: '(555) 123-4567',
-          address: '123 Therapy Lane, Mindful City, CA 90210',
-          profileImageUrl: 'https://randomuser.me/api/portraits/people/1.jpg',
-          updatedAt: new Date()
-        },
-      },
+      isAdmin: false,
+      status: 'active',
+      updatedAt: new Date()
     },
   });
   
@@ -45,7 +50,7 @@ async function main() {
   console.log(`Created ${clients.length} sample clients`);
   
   // Create sessions for each client
-  const sessions = await createSampleSessions(clients, demoUser.id);
+  const sessions = await createSampleSessions(clients);
   console.log(`Created ${sessions.length} sample sessions`);
   
   // Create treatment plans for each client
@@ -56,17 +61,9 @@ async function main() {
   const notes = await createSampleNotes(clients, sessions, demoUser.id);
   console.log(`Created ${notes.length} sample notes`);
   
-  // Create diagnoses for each client
-  const diagnoses = await createSampleDiagnoses(clients, demoUser.id);
-  console.log(`Created ${diagnoses.length} sample diagnoses`);
-  
   // Create billing records for sessions
-  const billingRecords = await createSampleBillingRecords(clients, sessions, demoUser.id);
+  const billingRecords = await createSampleBillingRecords(clients, sessions);
   console.log(`Created ${billingRecords.length} sample billing records`);
-  
-  // Create standalone tasks (not attached to goals)
-  const tasks = await createSampleTasks(clients);
-  console.log(`Created ${tasks.length} additional standalone tasks`);
   
   console.log('Seeding complete!');
 }
@@ -74,59 +71,22 @@ async function main() {
 async function createSampleClients(therapistId) {
   const clientsData = [
     {
-      id: 'client-1',
-      firstName: 'Alice',
-      lastName: 'Johnson',
-      email: 'alice.j@example.com',
-      phoneNumber: '(555) 111-2222',
-      dateOfBirth: new Date('1985-03-15'),
-      address: '789 Patient St, Wellness City, CA 90215',
-      emergencyContact: 'Bob Johnson (Husband): (555) 111-3333',
+      therapistId,
       status: 'ACTIVE',
+      createdAt: new Date(),
+      updatedAt: new Date()
     },
     {
-      id: 'client-2',
-      firstName: 'Michael',
-      lastName: 'Williams',
-      email: 'mwilliams@example.com',
-      phoneNumber: '(555) 444-5555',
-      dateOfBirth: new Date('1990-07-22'),
-      address: '101 Healing Blvd, Wellness City, CA 90217',
-      emergencyContact: 'Sarah Williams (Wife): (555) 444-6666',
+      therapistId,
       status: 'ACTIVE',
+      createdAt: new Date(),
+      updatedAt: new Date()
     },
     {
-      id: 'client-3',
-      firstName: 'Emily',
-      lastName: 'Brown',
-      email: 'emily.b@example.com',
-      phoneNumber: '(555) 777-8888',
-      dateOfBirth: new Date('1988-11-30'),
-      address: '202 Recovery Road, Wellness City, CA 90220',
-      emergencyContact: 'James Brown (Brother): (555) 777-9999',
+      therapistId,
       status: 'ACTIVE',
-    },
-    {
-      id: 'client-4',
-      firstName: 'David',
-      lastName: 'Garcia',
-      email: 'david.g@example.com',
-      phoneNumber: '(555) 222-3333',
-      dateOfBirth: new Date('1975-05-10'),
-      address: '303 Healing Circle, Wellness City, CA 90225',
-      emergencyContact: 'Maria Garcia (Wife): (555) 222-4444',
-      status: 'INACTIVE',
-    },
-    {
-      id: 'client-5',
-      firstName: 'Sophia',
-      lastName: 'Lee',
-      email: 'sophia.l@example.com',
-      phoneNumber: '(555) 666-7777',
-      dateOfBirth: new Date('1992-09-05'),
-      address: '404 Mindful Street, Wellness City, CA 90230',
-      emergencyContact: 'William Lee (Father): (555) 666-8888',
-      status: 'ONBOARDING',
+      createdAt: new Date(),
+      updatedAt: new Date()
     }
   ];
   
@@ -134,11 +94,7 @@ async function createSampleClients(therapistId) {
   
   for (const clientData of clientsData) {
     const client = await prisma.client.create({
-      data: {
-        ...clientData,
-        therapistId,
-        updatedAt: new Date(),
-      }
+      data: clientData
     });
     clients.push(client);
   }
@@ -146,7 +102,7 @@ async function createSampleClients(therapistId) {
   return clients;
 }
 
-async function createSampleSessions(clients, therapistId) {
+async function createSampleSessions(clients) {
   const sessions = [];
   const today = new Date();
   
@@ -178,63 +134,12 @@ async function createSampleSessions(clients, therapistId) {
       
       const session = await prisma.session.create({
         data: {
-          id: `${client.id}-past-session-${i}`,
           clientId: client.id,
-          therapistId: therapistId,
           startTime: new Date(new Date(pastDate).setHours(hour, minute, 0, 0)),
           endTime: new Date(new Date(pastDate).setHours(hour + 1, minute, 0, 0)),
           status: 'COMPLETED',
           updatedAt: new Date(),
-        }
-      });
-      
-      sessions.push(session);
-    }
-    
-    // Today's or recent sessions (if client is active)
-    if (client.status === 'ACTIVE') {
-      // 50% chance of today, 50% chance of yesterday or tomorrow
-      const dayOffset = Math.random() > 0.5 ? 0 : (Math.random() > 0.5 ? -1 : 1);
-      const recentDate = new Date(today);
-      recentDate.setDate(today.getDate() + dayOffset);
-      
-      // Random time for this session
-      const { hour, minute } = getRandomTime();
-      
-      const todaySession = await prisma.session.create({
-        data: {
-          id: `${client.id}-today-session`,
-          clientId: client.id,
-          therapistId: therapistId,
-          startTime: new Date(new Date(recentDate).setHours(hour, minute, 0, 0)),
-          endTime: new Date(new Date(recentDate).setHours(hour + 1, minute, 0, 0)),
-          status: Math.random() > 0.5 ? 'COMPLETED' : 'SCHEDULED',
-          updatedAt: new Date(),
-        }
-      });
-      
-      sessions.push(todaySession);
-    }
-    
-    // Future sessions with varied times and days
-    for (let i = 1; i <= 4; i++) {
-      const futureDate = new Date(today);
-      // Random future days (between 3-40 days in the future)
-      const daysAhead = getRandomDayOffset(3 + (i * 2), 7 + (i * 8));
-      futureDate.setDate(today.getDate() + daysAhead);
-      
-      // Random appointment time
-      const { hour, minute } = getRandomTime();
-      
-      const session = await prisma.session.create({
-        data: {
-          id: `${client.id}-future-session-${i}`,
-          clientId: client.id,
-          therapistId: therapistId,
-          startTime: new Date(new Date(futureDate).setHours(hour, minute, 0, 0)),
-          endTime: new Date(new Date(futureDate).setHours(hour + 1, minute, 0, 0)),
-          status: 'SCHEDULED',
-          updatedAt: new Date(),
+          type: 'Regular Session'
         }
       });
       
@@ -245,156 +150,29 @@ async function createSampleSessions(clients, therapistId) {
   return sessions;
 }
 
-async function createSampleTreatmentPlans(clients, therapistId) {
-  const treatmentPlans = [];
-  const today = new Date();
+async function createSampleTreatmentPlans(clients, userId) {
+  const plans = [];
   
-  const treatmentPlanTemplates = [
-    {
-      title: 'Anxiety Management Plan',
-      description: 'Focused on reducing generalized anxiety through CBT techniques and mindfulness practices.',
-      goals: [
-        {
-          description: 'Develop and implement daily mindfulness practice',
-          tasks: [
-            {
-              title: 'Download recommended mindfulness app',
-              description: 'Install Calm or Headspace and set up account',
-              status: 'COMPLETED',
-            },
-            {
-              title: 'Complete 10-minute mindfulness session 5 days per week',
-              status: 'IN_PROGRESS',
-            }
-          ]
-        },
-        {
-          description: 'Identify and challenge negative thought patterns',
-          tasks: [
-            {
-              title: 'Complete thought record daily',
-              description: 'Use CBT worksheet to identify automatic thoughts and challenge them',
-              status: 'PENDING',
-            }
-          ]
-        }
-      ]
-    },
-    {
-      title: 'Depression Management Plan',
-      description: 'Focused on alleviating depressive symptoms through behavioral activation and cognitive restructuring.',
-      goals: [
-        {
-          description: 'Increase daily physical activity',
-          tasks: [
-            {
-              title: 'Take a 15-minute walk each day',
-              status: 'IN_PROGRESS',
-            },
-            {
-              title: 'Join a fitness class or group activity',
-              status: 'PENDING',
-            }
-          ]
-        },
-        {
-          description: 'Establish regular sleep schedule',
-          tasks: [
-            {
-              title: 'Go to bed and wake up at consistent times',
-              description: 'Aim for bed by 10:30 PM and wake up by 7:00 AM',
-              status: 'IN_PROGRESS',
-            }
-          ]
-        }
-      ]
-    },
-    {
-      title: 'Stress Management Plan',
-      description: 'Focused on developing healthy coping strategies for managing work and life stress.',
-      goals: [
-        {
-          description: 'Improve work-life balance',
-          tasks: [
-            {
-              title: 'Establish firm boundaries around work hours',
-              status: 'PENDING',
-            },
-            {
-              title: 'Schedule at least one enjoyable activity each week',
-              status: 'IN_PROGRESS',
-            }
-          ]
-        },
-        {
-          description: 'Develop healthy stress response techniques',
-          tasks: [
-            {
-              title: 'Practice deep breathing exercises when feeling overwhelmed',
-              status: 'IN_PROGRESS',
-            }
-          ]
-        }
-      ]
-    }
-  ];
-  
-  for (let i = 0; i < clients.length; i++) {
-    const client = clients[i];
-    const planTemplate = treatmentPlanTemplates[i % treatmentPlanTemplates.length];
-    
+  for (const client of clients) {
     const plan = await prisma.treatmentPlan.create({
       data: {
         id: `plan-${client.id}`,
-        title: planTemplate.title,
-        description: planTemplate.description,
+        title: 'Initial Treatment Plan',
+        description: 'Standard initial treatment plan',
+        startDate: new Date(),
         clientId: client.id,
-        therapistId: therapistId,
-        status: 'ACTIVE',
-        startDate: new Date(today.setDate(today.getDate() - 30)),
-        updatedAt: new Date(),
-        Goal: {
-          create: planTemplate.goals.map((goal, goalIndex) => {
-            const targetDate = new Date();
-            targetDate.setDate(targetDate.getDate() + (30 * (goalIndex + 1)));
-            
-            return {
-              id: `goal-${client.id}-${goalIndex}`,
-              description: goal.description,
-              targetDate: targetDate,
-              status: goalIndex === 0 ? 'IN_PROGRESS' : 'NOT_STARTED',
-              updatedAt: new Date(),
-              Task: {
-                create: goal.tasks.map((task, taskIndex) => ({
-                  id: `task-${client.id}-${goalIndex}-${taskIndex}`,
-                  title: task.title,
-                  description: task.description || '',
-                  status: task.status,
-                  dueDate: new Date(targetDate.setDate(targetDate.getDate() - 7)),
-                  clientId: client.id,
-                  updatedAt: new Date(),
-                }))
-              }
-            };
-          })
-        }
-      },
-      include: {
-        Goal: {
-          include: {
-            Task: true
-          }
-        }
+        createdById: userId,
+        updatedAt: new Date()
       }
     });
     
-    treatmentPlans.push(plan);
+    plans.push(plan);
   }
   
-  return treatmentPlans;
+  return plans;
 }
 
-async function createSampleNotes(clients, sessions, therapistId) {
+async function createSampleNotes(clients, sessions, userId) {
   const notes = [];
   
   // Session notes for each completed session
@@ -402,44 +180,11 @@ async function createSampleNotes(clients, sessions, therapistId) {
     const note = await prisma.note.create({
       data: {
         id: `note-session-${session.id}`,
-        content: `Client attended session on ${session.startTime.toLocaleDateString()}. We discussed progress with current goals and coping strategies. Client reported ${Math.random() > 0.5 ? 'improvement in' : 'continued struggles with'} ${Math.random() > 0.5 ? 'anxiety symptoms' : 'sleep patterns'}. Next steps include ${Math.random() > 0.5 ? 'practicing mindfulness exercises daily' : 'completing thought records when feeling overwhelmed'}.`,
+        content: 'Session completed successfully. Client showed good progress.',
+        type: 'session',
         clientId: session.clientId,
-        therapistId,
-        sessionId: session.id,
-        noteType: 'SESSION_NOTE',
-        updatedAt: new Date(),
-      }
-    });
-    
-    notes.push(note);
-  }
-  
-  // Intake notes for each client
-  for (const client of clients) {
-    const note = await prisma.note.create({
-      data: {
-        id: `note-intake-${client.id}`,
-        content: `Initial assessment completed for ${client.firstName} ${client.lastName}. Client presents with symptoms of ${Math.random() > 0.5 ? 'anxiety' : 'depression'} that have been present for approximately ${Math.floor(Math.random() * 12) + 1} months. Client reports that symptoms are ${Math.random() > 0.5 ? 'interfering significantly with daily functioning' : 'manageable but concerning'}. We discussed treatment options and decided to begin with ${Math.random() > 0.5 ? 'weekly CBT sessions' : 'biweekly therapy focusing on mindfulness and stress reduction'}.`,
-        clientId: client.id,
-        therapistId,
-        noteType: 'INTAKE_NOTE',
-        updatedAt: new Date(),
-      }
-    });
-    
-    notes.push(note);
-  }
-  
-  // Progress notes for each client
-  for (const client of clients) {
-    const note = await prisma.note.create({
-      data: {
-        id: `note-progress-${client.id}`,
-        content: `Progress update for ${client.firstName}: Client has been attending sessions ${Math.random() > 0.5 ? 'consistently' : 'with occasional cancellations'}. Overall, we're seeing ${Math.random() > 0.5 ? 'good progress' : 'slow but steady improvement'} with the current treatment plan. Client reports ${Math.random() > 0.5 ? 'reduced frequency of symptoms' : 'better ability to manage symptoms when they occur'}. We will continue with the current treatment approach and reassess in 30 days.`,
-        clientId: client.id,
-        therapistId,
-        noteType: 'PROGRESS_NOTE',
-        updatedAt: new Date(),
+        createdById: userId,
+        updatedAt: new Date()
       }
     });
     
@@ -449,182 +194,65 @@ async function createSampleNotes(clients, sessions, therapistId) {
   return notes;
 }
 
-async function createSampleDiagnoses(clients, therapistId) {
-  const diagnoses = [];
-  
-  const diagnosisTemplates = [
-    {
-      code: 'F41.1',
-      name: 'Generalized Anxiety Disorder',
-      description: 'Excessive anxiety and worry occurring more days than not for at least 6 months.',
-    },
-    {
-      code: 'F32.1',
-      name: 'Major Depressive Disorder, Single Episode, Moderate',
-      description: 'Depressed mood and/or loss of interest or pleasure in nearly all activities for at least 2 weeks.',
-    },
-    {
-      code: 'F43.10',
-      name: 'Post-Traumatic Stress Disorder',
-      description: 'Development of characteristic symptoms following exposure to traumatic event(s).',
-    },
-    {
-      code: 'F40.10',
-      name: 'Social Anxiety Disorder',
-      description: 'Marked fear or anxiety about social situations in which the individual is exposed to possible scrutiny by others.',
-    },
-    {
-      code: 'F51.01',
-      name: 'Insomnia Disorder',
-      description: 'Dissatisfaction with sleep quantity or quality with complaints of difficulty initiating or maintaining sleep.',
-    }
-  ];
-  
-  for (const client of clients) {
-    // Assign 1-2 diagnoses to each client
-    const numberOfDiagnoses = Math.floor(Math.random() * 2) + 1;
-    const clientDiagnosisIndexes = [];
-    
-    for (let i = 0; i < numberOfDiagnoses; i++) {
-      let diagnosisIndex;
-      do {
-        diagnosisIndex = Math.floor(Math.random() * diagnosisTemplates.length);
-      } while (clientDiagnosisIndexes.includes(diagnosisIndex));
-      
-      clientDiagnosisIndexes.push(diagnosisIndex);
-      
-      const diagnosisTemplate = diagnosisTemplates[diagnosisIndex];
-      const diagnosis = await prisma.diagnosis.create({
-        data: {
-          clientId: client.id,
-          therapistId,
-          code: diagnosisTemplate.code,
-          name: diagnosisTemplate.name,
-          description: diagnosisTemplate.description,
-          dateAssigned: new Date(new Date().setDate(new Date().getDate() - Math.floor(Math.random() * 60))),
-          status: 'ACTIVE',
-        }
-      });
-      
-      diagnoses.push(diagnosis);
-    }
-  }
-  
-  return diagnoses;
-}
-
-async function createSampleBillingRecords(clients, sessions, therapistId) {
+async function createSampleBillingRecords(clients, sessions) {
   const billingRecords = [];
   
-  // Create billing records for each completed session
+  // Create billing records for completed sessions
   for (const session of sessions.filter(s => s.status === 'COMPLETED')) {
-    const amount = 100 + Math.floor(Math.random() * 50); // Random amount between $100-$150
-    const isPaid = Math.random() > 0.3; // 70% of completed sessions are paid
+    const amount = 100.00;
     
     const billing = await prisma.billing.create({
       data: {
+        id: `billing-session-${session.id}`,
         clientId: session.clientId,
-        therapistId,
         sessionId: session.id,
-        amount,
-        description: `Therapy session on ${session.startTime.toLocaleDateString()}`,
-        date: new Date(session.endTime),
-        status: isPaid ? 'PAID' : Math.random() > 0.5 ? 'PENDING' : 'INSURANCE_SUBMITTED',
-        paidDate: isPaid ? new Date(new Date(session.endTime).setDate(session.endTime.getDate() + Math.floor(Math.random() * 10))) : null,
-        insuranceInfo: Math.random() > 0.5 ? 'Blue Cross PPO #12345678' : 'Aetna HMO #87654321',
+        amount: amount,
+        description: 'Therapy session',
+        date: session.startTime,
+        status: 'Pending',
+        updatedAt: new Date()
       }
     });
     
     billingRecords.push(billing);
   }
   
-  // Add a few standalone billing records (not tied to sessions)
+  // Create initial assessment billing for each client
   for (const client of clients) {
-    if (Math.random() > 0.5) { // 50% chance to add standalone billing
-      const billing = await prisma.billing.create({
-        data: {
-          clientId: client.id,
-          therapistId,
-          amount: 75.00,
-          description: 'Initial assessment fee',
-          date: new Date(new Date().setDate(new Date().getDate() - Math.floor(Math.random() * 30))),
-          status: Math.random() > 0.5 ? 'PAID' : 'PENDING',
-          paidDate: Math.random() > 0.5 ? new Date(new Date().setDate(new Date().getDate() - Math.floor(Math.random() * 20))) : null,
-        }
-      });
-      
-      billingRecords.push(billing);
-    }
+    const billing = await prisma.billing.create({
+      data: {
+        id: `billing-assessment-${client.id}`,
+        clientId: client.id,
+        amount: 75.00,
+        description: 'Initial assessment fee',
+        date: new Date(),
+        status: 'Pending',
+        updatedAt: new Date()
+      }
+    });
+    
+    billingRecords.push(billing);
   }
   
   return billingRecords;
 }
 
-async function createSampleTasks(clients) {
-  const tasks = [];
-  
-  // Add standalone tasks (not tied to goals) for active clients
-  for (const client of clients.filter(c => c.status === 'ACTIVE')) {
-    const taskTemplates = [
-      {
-        title: `Contact insurance provider about ${client.firstName}'s coverage`,
-        description: 'Verify session limits and co-pay amounts for the current year',
-        dueDate: new Date(new Date().setDate(new Date().getDate() + 3)),
-        status: 'PENDING'
-      },
-      {
-        title: `Prepare assessment report for ${client.firstName}`,
-        description: 'Complete initial assessment documentation and recommendations',
-        dueDate: new Date(new Date().setDate(new Date().getDate() + 5)),
-        status: 'IN_PROGRESS'
-      },
-      {
-        title: `Send resource materials to ${client.firstName}`,
-        description: 'Email the anxiety workbook PDF and mindfulness resources',
-        dueDate: new Date(new Date().setDate(new Date().getDate() + 1)),
-        status: Math.random() > 0.5 ? 'COMPLETED' : 'PENDING',
-        completedDate: Math.random() > 0.5 ? new Date(new Date().setDate(new Date().getDate() - 1)) : null
-      }
-    ];
-    
-    // Add 1-2 standalone tasks for each client
-    const numberOfTasks = Math.floor(Math.random() * 2) + 1;
-    
-    for (let i = 0; i < numberOfTasks; i++) {
-      const taskTemplate = taskTemplates[i % taskTemplates.length];
-      
-      const task = await prisma.task.create({
-        data: {
-          id: `standalone-task-${client.id}-${i}`,
-          title: taskTemplate.title,
-          description: taskTemplate.description,
-          dueDate: taskTemplate.dueDate,
-          status: taskTemplate.status,
-          completedDate: taskTemplate.completedDate || null,
-          clientId: client.id,
-          updatedAt: new Date(),
-        }
-      });
-      
-      tasks.push(task);
-    }
-  }
-  
-  return tasks;
-}
-
 async function clearDatabase() {
-  // Delete all records in the correct order to respect foreign key constraints
-  await prisma.Billing.deleteMany({});
-  await prisma.Diagnosis.deleteMany({});
-  await prisma.Task.deleteMany({});
-  await prisma.Goal.deleteMany({});
-  await prisma.TreatmentPlan.deleteMany({});
-  await prisma.Note.deleteMany({});
-  await prisma.Session.deleteMany({});
-  await prisma.Client.deleteMany({});
-  await prisma.Profile.deleteMany({});
-  await prisma.User.deleteMany({});
+  console.log('Clearing existing database records...');
+  
+  // Delete records in the correct order to respect foreign key constraints
+  await prisma.auditLog.deleteMany();
+  await prisma.billing.deleteMany();
+  await prisma.note.deleteMany();
+  await prisma.task.deleteMany();
+  await prisma.goal.deleteMany();
+  await prisma.treatmentPlan.deleteMany();
+  await prisma.session.deleteMany();
+  await prisma.appointment.deleteMany();
+  await prisma.client.deleteMany();
+  await prisma.user.deleteMany();
+  
+  console.log('Database cleared successfully');
 }
 
 main()

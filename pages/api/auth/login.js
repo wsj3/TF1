@@ -1,100 +1,103 @@
 // Custom authentication login API
-import { serialize } from 'cookie';
-import jwt from 'jsonwebtoken';
-
-// Mock user database - In production, use your actual database
-const users = [
-  { id: 'demo-user-id', email: 'demo@therapistsfriend.com', password: 'demo123', name: 'Demo User', role: 'THERAPIST' },
-  { id: '1', email: 'demo@example.com', password: 'password', name: 'Demo User', role: 'THERAPIST' }
-];
+import prisma from '../../../lib/prisma';
+import bcrypt from 'bcryptjs';
+import { sign } from 'jsonwebtoken';
+import cookie from 'cookie';
+import { authConfig } from '../../../utils/auth';
 
 export default async function handler(req, res) {
-  // Only allow POST requests
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(405).json({ message: 'Method not allowed' });
   }
 
   try {
     const { email, password } = req.body;
 
-    console.log(`Login attempt for email: ${email}`);
-    
-    // Find user with matching email and password
-    const user = users.find(u => u.email === email && u.password === password);
+    console.log('Login attempt:', { email }); // Debug log
 
-    if (!user) {
-      console.log(`Invalid credentials for email: ${email}`);
-      return res.status(401).json({ error: 'Invalid credentials' });
+    // Validate input
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    // Get environment variables with fallbacks
-    const jwtSecret = process.env.JWT_SECRET || 'default-development-secret';
-    const cookieName = process.env.AUTH_COOKIE_NAME || 'tf-auth-token';
-    const isProduction = process.env.NODE_ENV === 'production';
-    const isDevelopment = process.env.NODE_ENV === 'development';
-    
-    // Determine environment type
-    const host = req.headers.host || '';
-    const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
-    const isVercel = host.includes('vercel.app') || 
-                    process.env.VERCEL === '1' ||
-                    !!process.env.VERCEL_URL;
-    
-    // Add request host info to help debug
-    console.log('Auth environment:', { 
-      env: process.env.NODE_ENV,
-      cookieName,
-      hasJwtSecret: !!process.env.JWT_SECRET,
-      jwtSecretFirstChars: jwtSecret.substring(0, 5) + '...',
-      isProduction,
-      isDevelopment,
-      host,
-      origin: req.headers.origin,
-      isLocalhost,
-      isVercel
+    // Find user
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        password: true,
+        isAdmin: true,
+        role: true,
+        status: true,
+        name: true
+      }
     });
 
-    // Create JWT token
-    const token = jwt.sign(
-      {
-        id: user.id,
+    console.log('User found:', { exists: !!user }); // Debug log
+
+    if (!user) {
+      console.log('Login failed: User not found');
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Verify password
+    const isValid = await bcrypt.compare(password, user.password);
+
+    console.log('Password verification:', { isValid }); // Debug log
+
+    if (!isValid) {
+      console.log('Login failed: Invalid password');
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Check if user is active
+    if (user.status !== 'active') {
+      console.log('Login failed: Account not active');
+      return res.status(401).json({ message: 'Account is not active' });
+    }
+
+    // Create session token
+    const token = sign(
+      { 
+        userId: user.id,
         email: user.email,
-        name: user.name,
-        role: user.role
+        isAdmin: user.isAdmin,
+        role: user.role,
+        name: user.name
       },
-      jwtSecret,
-      { expiresIn: '1d' }
+      authConfig.jwtSecret,
+      { expiresIn: '24h' }
     );
 
-    // Set cookie options based on environment
+    // Set cookie
     const cookieOptions = {
-      httpOnly: true,
-      // For local development, don't use secure cookies
-      secure: !isLocalhost && (isProduction || isVercel),
-      // Use appropriate SameSite setting for the environment
-      sameSite: isVercel ? 'none' : (isLocalhost ? 'lax' : 'strict'),
-      maxAge: 86400, // 1 day in seconds
-      path: '/'
+      ...authConfig.cookieOptions,
+      maxAge: 24 * 60 * 60 * 1000 // Convert to milliseconds
     };
 
-    console.log('Cookie options:', cookieOptions);
+    res.setHeader('Set-Cookie', cookie.serialize(authConfig.cookieName, token, cookieOptions));
 
-    // Set HTTP cookie
-    const cookie = serialize(cookieName, token, cookieOptions);
-    console.log('Login successful for:', email);
+    console.log('Login successful, setting cookie:', { 
+      cookieName: authConfig.cookieName,
+      email: user.email,
+      options: cookieOptions
+    });
 
-    // Set cookie header
-    res.setHeader('Set-Cookie', cookie);
+    // Remove sensitive data
+    const { password: _, ...userData } = user;
 
-    // Return user info without password
-    const { password: _, ...userWithoutPassword } = user;
-    
     return res.status(200).json({
-      token,
-      user: userWithoutPassword
+      success: true,
+      message: 'Logged in successfully',
+      user: userData
     });
   } catch (error) {
     console.error('Login error:', error);
-    return res.status(500).json({ error: 'Authentication failed', details: error.message });
+    return res.status(500).json({ 
+      success: false,
+      message: 'Internal server error',
+      error: error.message 
+    });
   }
 } 

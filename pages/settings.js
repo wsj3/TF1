@@ -5,6 +5,7 @@ import Head from 'next/head';
 
 function Settings() {
   const { user } = useAuth();
+  const [mounted, setMounted] = useState(false);
   const [generalExpanded, setGeneralExpanded] = useState(true);
   const [knowledgeBaseExpanded, setKnowledgeBaseExpanded] = useState(false);
   const [aiAssistantExpanded, setAiAssistantExpanded] = useState(false);
@@ -51,58 +52,72 @@ function Settings() {
     { name: 'Billing Reference', display: false, rows: 18 }
   ]);
   
+  // Set mounted state
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Load all settings from localStorage
+  useEffect(() => {
+    if (mounted && typeof window !== 'undefined') {
+      try {
+        // Load AI Assistant settings
+        const savedInterfaceType = localStorage.getItem('aiInterfaceType');
+        const savedVoice = localStorage.getItem('preferredVoice');
+        const savedSpeechRate = localStorage.getItem('speechRate');
+        const savedTemperature = localStorage.getItem('aiTemperature');
+        const savedHumanAvatarEnabled = localStorage.getItem('humanAvatarEnabled');
+        const savedHumanAvatarStyle = localStorage.getItem('humanAvatarStyle');
+        const savedGuidanceTypes = localStorage.getItem('guidanceTypes');
+        
+        if (savedInterfaceType) setInterfaceType(savedInterfaceType);
+        if (savedVoice) setPreferredVoice(savedVoice);
+        if (savedSpeechRate) setSpeechRate(parseInt(savedSpeechRate));
+        if (savedTemperature) setAccuracyTemperature(parseInt(savedTemperature));
+        if (savedHumanAvatarEnabled !== null) setHumanAvatarEnabled(savedHumanAvatarEnabled === 'true');
+        if (savedHumanAvatarStyle) setHumanAvatarStyle(savedHumanAvatarStyle);
+        if (savedGuidanceTypes) setGuidanceTypes(JSON.parse(savedGuidanceTypes));
+
+        // Load Google Sheet URL
+        const envGoogleSheetUrl = process.env.NEXT_PUBLIC_GOOGLE_SHEET_URL || '';
+        if (envGoogleSheetUrl) {
+          setGoogleSheetUrl(envGoogleSheetUrl);
+          setGoogleSheetLoaded(true);
+        }
+      } catch (error) {
+        console.error('Error loading settings from localStorage:', error);
+      }
+    }
+  }, [mounted]);
+
+  // Save settings to localStorage
+  useEffect(() => {
+    if (mounted && typeof window !== 'undefined') {
+      try {
+        // Save AI Assistant settings
+        localStorage.setItem('aiInterfaceType', interfaceType);
+        localStorage.setItem('preferredVoice', preferredVoice);
+        localStorage.setItem('speechRate', speechRate.toString());
+        localStorage.setItem('aiTemperature', accuracyTemperature.toString());
+        localStorage.setItem('humanAvatarEnabled', humanAvatarEnabled.toString());
+        localStorage.setItem('humanAvatarStyle', humanAvatarStyle);
+        localStorage.setItem('guidanceTypes', JSON.stringify(guidanceTypes));
+        
+        // Save voice settings for compatibility
+        const voiceSettings = { voice: preferredVoice, rate: speechRate };
+        localStorage.setItem('aiVoiceSettings', JSON.stringify(voiceSettings));
+      } catch (error) {
+        console.error('Error saving settings to localStorage:', error);
+      }
+    }
+  }, [mounted, interfaceType, preferredVoice, speechRate, accuracyTemperature, humanAvatarEnabled, humanAvatarStyle, guidanceTypes]);
+  
   // Function to toggle sheet display
   const toggleSheetDisplay = (index) => {
     const updatedSheets = [...availableSheets];
     updatedSheets[index].display = !updatedSheets[index].display;
     setAvailableSheets(updatedSheets);
   };
-  
-  // Load Google Sheet URL from environment variables
-  useEffect(() => {
-    // This would normally be fetched from a secure API
-    const envGoogleSheetUrl = process.env.NEXT_PUBLIC_GOOGLE_SHEET_URL || '';
-    if (envGoogleSheetUrl) {
-      setGoogleSheetUrl(envGoogleSheetUrl);
-      setGoogleSheetLoaded(true);
-    }
-  }, []);
-  
-  // Load settings from localStorage on mount
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      // Load AI Assistant settings from localStorage if available
-      const savedInterfaceType = localStorage.getItem('aiInterfaceType');
-      const savedVoice = localStorage.getItem('preferredVoice');
-      const savedSpeechRate = localStorage.getItem('speechRate');
-      const savedTemperature = localStorage.getItem('aiTemperature');
-      const savedHumanAvatarEnabled = localStorage.getItem('humanAvatarEnabled');
-      const savedHumanAvatarStyle = localStorage.getItem('humanAvatarStyle');
-      
-      if (savedInterfaceType) setInterfaceType(savedInterfaceType);
-      if (savedVoice) setPreferredVoice(savedVoice);
-      if (savedSpeechRate) setSpeechRate(parseInt(savedSpeechRate));
-      if (savedTemperature) setAccuracyTemperature(parseInt(savedTemperature));
-      if (savedHumanAvatarEnabled !== null) setHumanAvatarEnabled(savedHumanAvatarEnabled === 'true');
-      if (savedHumanAvatarStyle) setHumanAvatarStyle(savedHumanAvatarStyle);
-    }
-  }, []);
-  
-  // Save AI Assistant settings to localStorage whenever they change
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('aiInterfaceType', interfaceType);
-      localStorage.setItem('preferredVoice', preferredVoice);
-      localStorage.setItem('speechRate', speechRate.toString());
-      localStorage.setItem('aiTemperature', accuracyTemperature.toString());
-      localStorage.setItem('humanAvatarEnabled', humanAvatarEnabled.toString());
-      localStorage.setItem('humanAvatarStyle', humanAvatarStyle);
-      
-      // Also update combined voice settings for compatibility with existing components
-      const voiceSettings = { voice: preferredVoice, rate: speechRate };
-      localStorage.setItem('aiVoiceSettings', JSON.stringify(voiceSettings));
-    }
-  }, [interfaceType, preferredVoice, speechRate, accuracyTemperature, humanAvatarEnabled, humanAvatarStyle]);
   
   // Toggle section expansion
   const toggleGeneral = () => setGeneralExpanded(!generalExpanded);
@@ -118,22 +133,10 @@ function Settings() {
     }));
   };
 
-  // Save guidance types to localStorage
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('guidanceTypes', JSON.stringify(guidanceTypes));
-    }
-  }, [guidanceTypes]);
-
-  // Load guidance types from localStorage
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedGuidanceTypes = localStorage.getItem('guidanceTypes');
-      if (savedGuidanceTypes) {
-        setGuidanceTypes(JSON.parse(savedGuidanceTypes));
-      }
-    }
-  }, []);
+  // Don't render anything until mounted
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <Layout>
@@ -631,4 +634,5 @@ function Settings() {
   );
 }
 
+// Export the wrapped component
 export default withAuth(Settings); 

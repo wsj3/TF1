@@ -25,38 +25,67 @@ The project uses a Git-based deployment workflow:
 
 2. **Staging to Production Process**:
    a. Complete testing on staging environment
-   b. Create a pull request from `staging` to `main`
+   b. Verify staging deployment is stable and ready for production
    c. Required approvals:
       - Code review approval
       - QA sign-off
       - Product owner approval
-   d. After approvals, merge PR to main
-   e. **Automatic Production Deployment**:
-      - Digital Ocean automatically detects the push to main
-      - Creates a production deployment on the production server
+   d. **Manual Production Deployment**:
+      - Log in to DigitalOcean App Platform (https://cloud.digitalocean.com/apps)
+      - Navigate to the production app (tf1-production)
+      - Click the "Deploy" button to manually trigger a new deployment
+      - Monitor the deployment logs for any issues
+      - Verify the production website after deployment completes
 
-   **Automated Promotion Script**:
-   - Use the `promote-to-production.ps1` script to automate the promotion process:
+   **Automated Promotion Tool**:
+   - Use the `promote-to-production.ps1` script to help verify staging is ready for promotion:
      ```powershell
      ./promote-to-production.ps1
      ```
    - This script will:
      - Ensure you're on the staging branch
      - Pull latest changes
-     - Check if staging is ahead of main
-     - Show changes to be promoted
+     - Show changes between staging and production
      - Run through a pre-launch checklist
-     - Create a pull request from staging to main (using GitHub CLI if available)
-     - Provide next steps for completing the promotion process
+     - Provide instructions for manually triggering the deployment in DigitalOcean dashboard
 
-3. **Branch Configuration**:
-   - `main` branch → Production Digital Ocean environment
-   - `staging` branch → Staging Digital Ocean environment
+## Environment Variables
 
-4. **How It Works**:
-   - When code is pushed to the `staging` branch, Digital Ocean automatically deploys to staging
-   - When code is pushed to the `main` branch, Digital Ocean automatically deploys to production
-   - Each environment has its own Digital Ocean App Platform configuration
+The application uses different environment files for different environments:
+- `.env.local` - Local development environment
+- `.env.production` - Production environment on DigitalOcean
+
+**IMPORTANT**: Never commit environment files to the repository. The production environment variables are managed through the DigitalOcean App Platform dashboard.
+
+## Backup Process
+
+Before any deployment:
+1. Run the backup script:
+   ```powershell
+   ./backup.ps1
+   ```
+2. Verify the backup was created successfully in the `backups` directory
+3. Document the backup in `backup_readme.md`
+
+## Post-Deployment Verification
+
+After deployment:
+1. Verify all environment variables are correctly set
+2. Test critical functionality:
+   - User authentication
+   - Client record access
+   - Appointment scheduling
+   - Treatment plan creation
+   - AI assistant functionality
+3. Check error logs in DigitalOcean dashboard
+4. Verify backup systems are functioning
+
+## Rollback Process
+
+If issues are detected after deployment:
+1. Use the backup created before deployment
+2. Follow the rollback instructions in `backup_readme.md`
+3. Document the rollback in the deployment history
 
 ## Repository Information
 
@@ -92,12 +121,18 @@ The project uses a Git-based deployment workflow:
 ### Production Environment
 1. Copy `.env.production.example` to `.env.production`
 2. Configure production environment variables
-3. Deploy to production by merging to the main branch:
+3. Deploy to production:
    ```bash
-   # Create a PR from staging to main in GitHub
-   # After approvals, merge the PR
+   # First, run the promotion verification script to check readiness
+   ./promote-to-production.ps1
+   
+   # Then manually trigger the deployment from DigitalOcean dashboard:
+   # 1. Log in to DigitalOcean App Platform (https://cloud.digitalocean.com/apps)
+   # 2. Navigate to the production app (tf1-production)
+   # 3. Click the "Deploy" button to manually trigger a deployment
+   # 4. Monitor the deployment logs for any issues
    ```
-   Digital Ocean will automatically detect the push to main and deploy the changes.
+   DigitalOcean will build and deploy from the latest code in the specified branch.
 
 ## Digital Ocean App Platform Setup
 
@@ -226,7 +261,7 @@ The project uses a Git-based deployment workflow:
    ```bash
    # Generate Prisma Client
    npx prisma generate
-   
+
    # Create migration
    npx prisma migrate dev --name init
    ```
@@ -236,7 +271,7 @@ The project uses a Git-based deployment workflow:
    # Set DATABASE_URL to production database
    # Important: Use a one-time environment variable, don't modify your local .env file
    $env:DATABASE_URL="postgresql://user:password@production-db.neon.tech/therapyapp?sslmode=require"
-   
+
    # Deploy migrations
    npx prisma migrate deploy
    ```
@@ -246,7 +281,7 @@ The project uses a Git-based deployment workflow:
    ```bash
    # Create a new migration
    npx prisma migrate dev --name describe_your_changes
-   
+
    # Apply to other environments as needed
    npx prisma migrate deploy
    ```
@@ -280,4 +315,4 @@ The project uses a Git-based deployment workflow:
    - Run it with appropriate parameters to backup both files and database:
      ```powershell
      ./backup.ps1 -backupDatabase
-     ``` 
+     ```

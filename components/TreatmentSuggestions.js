@@ -1,13 +1,78 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { callAssistantApi } from '../utils/apiHelpers';
+import { validateHIPAACompliance } from '../utils/hipaaUtils';
 
-const TreatmentSuggestions = ({ clientInfo, onAddToTreatmentPlan }) => {
+const TreatmentSuggestions = ({ 
+  clientInfo, 
+  onAddToTreatmentPlan,
+  clientHistory = null,
+  evidenceBasedProtocols = null
+}) => {
   const [isLoading, setIsLoading] = useState(false);
   const [suggestions, setSuggestions] = useState(null);
   const [error, setError] = useState(null);
   const [presentingProblems, setPresentingProblems] = useState(['']);
   const [clientGoals, setClientGoals] = useState(['']);
   const [expandedSection, setExpandedSection] = useState(null);
+  const [selectedProtocol, setSelectedProtocol] = useState(null);
+  const [clinicalContext, setClinicalContext] = useState({
+    diagnosis: '',
+    severity: 'mild',
+    duration: '',
+    previousTreatments: [],
+    comorbidities: []
+  });
   
+  // Load evidence-based protocols if not provided
+  useEffect(() => {
+    if (!evidenceBasedProtocols) {
+      loadEvidenceBasedProtocols();
+    }
+  }, []);
+
+  // Load client history if available
+  useEffect(() => {
+    if (clientHistory) {
+      setClinicalContext(prev => ({
+        ...prev,
+        ...clientHistory
+      }));
+    }
+  }, [clientHistory]);
+
+  // Load evidence-based protocols
+  const loadEvidenceBasedProtocols = async () => {
+    try {
+      const response = await fetch('/api/treatment-plans/protocols');
+      if (!response.ok) throw new Error('Failed to load protocols');
+      const data = await response.json();
+      setEvidenceBasedProtocols(data.protocols);
+    } catch (err) {
+      console.error('Error loading protocols:', err);
+    }
+  };
+
+  // Handle clinical context updates
+  const handleClinicalContextChange = (field, value) => {
+    setClinicalContext(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  // Validate clinical context
+  const validateClinicalContext = () => {
+    if (!clinicalContext.diagnosis) {
+      setError('Please select a diagnosis');
+      return false;
+    }
+    if (!clinicalContext.severity) {
+      setError('Please select severity level');
+      return false;
+    }
+    return true;
+  };
+
   // Handle adding a new presenting problem field
   const handleAddProblem = () => {
     setPresentingProblems([...presentingProblems, '']);
@@ -53,12 +118,16 @@ const TreatmentSuggestions = ({ clientInfo, onAddToTreatmentPlan }) => {
   // Filter out empty values
   const filterEmptyValues = (arr) => arr.filter(item => item.trim() !== '');
   
-  // Generate treatment suggestions
+  // Generate treatment suggestions with enhanced context
   const handleGenerateSuggestions = async () => {
     // Validate inputs
     const filteredProblems = filterEmptyValues(presentingProblems);
     if (filteredProblems.length === 0) {
       setError('Please enter at least one presenting problem');
+      return;
+    }
+
+    if (!validateClinicalContext()) {
       return;
     }
     
@@ -67,17 +136,25 @@ const TreatmentSuggestions = ({ clientInfo, onAddToTreatmentPlan }) => {
       setError(null);
       setSuggestions(null);
       
+      // Prepare context for API
+      const apiContext = {
+        clientInfo,
+        clinicalContext,
+        presentingProblems: filteredProblems,
+        goals: filterEmptyValues(clientGoals),
+        selectedProtocol,
+        evidenceBasedProtocols
+      };
+
+      // Validate HIPAA compliance
+      if (!validateHIPAACompliance(JSON.stringify(apiContext))) {
+        throw new Error('Input contains potentially sensitive information');
+      }
+
       // Call the API to generate suggestions
-      const response = await fetch('/api/treatment-plans/suggest', {
+      const response = await callAssistantApi('/api/treatment-plans/suggest', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          clientInfo,
-          presentingProblems: filteredProblems,
-          goals: filterEmptyValues(clientGoals)
-        }),
+        body: JSON.stringify(apiContext)
       });
       
       if (!response.ok) {
@@ -95,25 +172,17 @@ const TreatmentSuggestions = ({ clientInfo, onAddToTreatmentPlan }) => {
       setIsLoading(false);
     }
   };
-  
-  // Handle adding a suggested goal to the treatment plan
-  const handleAddSuggestedGoal = () => {
-    if (!suggestions || !suggestions.goals) return;
-    
-    onAddToTreatmentPlan({
-      type: 'goals',
-      content: suggestions.goals
-    });
-  };
-  
-  // Handle adding a suggested intervention to the treatment plan
-  const handleAddSuggestedIntervention = () => {
-    if (!suggestions || !suggestions.interventions) return;
-    
-    onAddToTreatmentPlan({
-      type: 'interventions',
-      content: suggestions.interventions
-    });
+
+  // Handle protocol selection
+  const handleProtocolSelect = (protocol) => {
+    setSelectedProtocol(protocol);
+    // Update clinical context based on protocol
+    if (protocol.defaultContext) {
+      setClinicalContext(prev => ({
+        ...prev,
+        ...protocol.defaultContext
+      }));
+    }
   };
   
   // Toggle expanded section
@@ -124,6 +193,55 @@ const TreatmentSuggestions = ({ clientInfo, onAddToTreatmentPlan }) => {
   return (
     <div className="bg-gray-800 rounded-lg p-6">
       <h3 className="text-lg font-medium mb-4">AI Treatment Suggestions</h3>
+      
+      <div className="clinical-context-section">
+        <h3>Clinical Context</h3>
+        <div className="form-group">
+          <label>Diagnosis</label>
+          <select 
+            value={clinicalContext.diagnosis}
+            onChange={(e) => handleClinicalContextChange('diagnosis', e.target.value)}
+          >
+            <option value="">Select Diagnosis</option>
+            <option value="depression">Depression</option>
+            <option value="anxiety">Anxiety</option>
+            <option value="ptsd">PTSD</option>
+            <option value="bipolar">Bipolar Disorder</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        
+        <div className="form-group">
+          <label>Severity</label>
+          <select 
+            value={clinicalContext.severity}
+            onChange={(e) => handleClinicalContextChange('severity', e.target.value)}
+          >
+            <option value="mild">Mild</option>
+            <option value="moderate">Moderate</option>
+            <option value="severe">Severe</option>
+          </select>
+        </div>
+
+        {evidenceBasedProtocols && (
+          <div className="form-group">
+            <label>Evidence-Based Protocol</label>
+            <select 
+              value={selectedProtocol?.id || ''}
+              onChange={(e) => handleProtocolSelect(
+                evidenceBasedProtocols.find(p => p.id === e.target.value)
+              )}
+            >
+              <option value="">Select Protocol</option>
+              {evidenceBasedProtocols.map(protocol => (
+                <option key={protocol.id} value={protocol.id}>
+                  {protocol.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
       
       {/* Input Form */}
       <div className="mb-6">
@@ -271,7 +389,10 @@ const TreatmentSuggestions = ({ clientInfo, onAddToTreatmentPlan }) => {
                   {suggestions.interventions}
                 </div>
                 <button
-                  onClick={handleAddSuggestedIntervention}
+                  onClick={() => onAddToTreatmentPlan({
+                    type: 'interventions',
+                    content: suggestions.interventions
+                  })}
                   className="px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
                 >
                   Add to Treatment Plan
@@ -297,7 +418,10 @@ const TreatmentSuggestions = ({ clientInfo, onAddToTreatmentPlan }) => {
                   {suggestions.goals}
                 </div>
                 <button
-                  onClick={handleAddSuggestedGoal}
+                  onClick={() => onAddToTreatmentPlan({
+                    type: 'goals',
+                    content: suggestions.goals
+                  })}
                   className="px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
                 >
                   Add to Treatment Plan

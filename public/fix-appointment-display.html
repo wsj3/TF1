@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fix Appointment Display</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      line-height: 1.5;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+      background: #1a202c;
+      color: #e2e8f0;
+    }
+    .card {
+      background: #2d3748;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    h1, h2 {
+      color: #90cdf4;
+    }
+    pre {
+      background: #1a202c;
+      padding: 10px;
+      border-radius: 5px;
+      overflow-x: auto;
+      color: #e2e8f0;
+    }
+    button {
+      background: #3182ce;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 8px;
+      margin-bottom: 8px;
+    }
+    button:hover {
+      background: #2b6cb0;
+    }
+    .appointment {
+      background: #4a5568;
+      padding: 12px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+    }
+    .success {
+      background: #48bb78;
+      color: white;
+      padding: 8px;
+      border-radius: 4px;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Appointment Display Fixer</h1>
+  
+  <div class="card">
+    <h2>Current Demo Appointments</h2>
+    <div id="current-appointments">Loading...</div>
+    <button onclick="displayAppointments()">Refresh</button>
+    <button onclick="clearAppointments()">Clear All</button>
+  </div>
+  
+  <div class="card">
+    <h2>Create Test Appointment</h2>
+    <button onclick="createTestAppointment()">Create Jane Smith March 27 8am Appointment</button>
+    <button onclick="fixAppointmentDates()">Fix All Appointment Dates</button>
+  </div>
+  
+  <div class="card">
+    <h2>Debug Information</h2>
+    <div id="debug-info"></div>
+  </div>
+
+  <script>
+    // Display all appointments from localStorage
+    function displayAppointments() {
+      const appointmentsContainer = document.getElementById('current-appointments');
+      const savedAppointmentsString = localStorage.getItem('demo-appointments');
+      
+      if (!savedAppointmentsString) {
+        appointmentsContainer.innerHTML = '<p>No appointments found</p>';
+        return;
+      }
+      
+      try {
+        const appointments = JSON.parse(savedAppointmentsString);
+        if (!appointments || appointments.length === 0) {
+          appointmentsContainer.innerHTML = '<p>No appointments found</p>';
+          return;
+        }
+        
+        let html = `<p>Found ${appointments.length} appointment(s):</p>`;
+        
+        appointments.forEach((appointment, index) => {
+          const startTime = appointment.startTime ? new Date(appointment.startTime).toLocaleString() : 'Invalid date';
+          const endTime = appointment.endTime ? new Date(appointment.endTime).toLocaleString() : 'Invalid date';
+          
+          html += `
+            <div class="appointment">
+              <p><strong>ID:</strong> ${appointment.id}</p>
+              <p><strong>Client:</strong> ${appointment.client?.name || 'Unknown'}</p>
+              <p><strong>Start Time:</strong> ${startTime}</p>
+              <p><strong>End Time:</strong> ${endTime}</p>
+              <p><strong>Duration:</strong> ${appointment.duration} minutes</p>
+              <p><strong>Type:</strong> ${appointment.type}</p>
+              <button onclick="removeAppointment(${index})">Remove</button>
+            </div>
+          `;
+        });
+        
+        appointmentsContainer.innerHTML = html;
+      } catch (e) {
+        appointmentsContainer.innerHTML = `<p>Error parsing appointments: ${e.message}</p>`;
+      }
+    }
+    
+    // Clear all appointments
+    function clearAppointments() {
+      localStorage.removeItem('demo-appointments');
+      document.getElementById('current-appointments').innerHTML = '<p>All appointments cleared</p>';
+      
+      const debugInfo = document.getElementById('debug-info');
+      debugInfo.innerHTML = '<div class="success">Appointments cleared successfully</div>';
+    }
+    
+    // Remove a specific appointment
+    function removeAppointment(index) {
+      const savedAppointmentsString = localStorage.getItem('demo-appointments');
+      if (!savedAppointmentsString) return;
+      
+      try {
+        const appointments = JSON.parse(savedAppointmentsString);
+        if (!appointments || !Array.isArray(appointments)) return;
+        
+        appointments.splice(index, 1);
+        localStorage.setItem('demo-appointments', JSON.stringify(appointments));
+        
+        displayAppointments();
+        
+        const debugInfo = document.getElementById('debug-info');
+        debugInfo.innerHTML = '<div class="success">Appointment removed successfully</div>';
+      } catch (e) {
+        console.error('Error removing appointment:', e);
+      }
+    }
+    
+    // Create a test appointment for Jane Smith
+    function createTestAppointment() {
+      // Set to March 27, 2025 at 8:00 AM
+      const appointmentDate = new Date(2025, 2, 27, 8, 0, 0);
+      
+      const demoAppointment = {
+        id: `app-${Date.now()}`,
+        clientId: 'demo-1',
+        startTime: appointmentDate.toISOString(),  // Store as ISO string for consistent serialization
+        endTime: new Date(appointmentDate.getTime() + 60*60*1000).toISOString(),  // 1 hour later
+        duration: 60,
+        notes: 'Created via Fix Tool',
+        type: 'Regular Session',
+        status: 'Scheduled',
+        client: {
+          id: 'demo-1',
+          name: 'Jane Smith',
+          email: 'jane.smith@example.com',
+          phone: '(555) 123-4567'
+        }
+      };
+      
+      try {
+        // Get existing appointments
+        const savedAppointmentsString = localStorage.getItem('demo-appointments');
+        const savedAppointments = savedAppointmentsString ? JSON.parse(savedAppointmentsString) : [];
+        
+        // Add new appointment
+        savedAppointments.push(demoAppointment);
+        
+        // Save back to localStorage
+        localStorage.setItem('demo-appointments', JSON.stringify(savedAppointments));
+        
+        displayAppointments();
+        
+        const debugInfo = document.getElementById('debug-info');
+        debugInfo.innerHTML = `
+          <div class="success">Test appointment created successfully</div>
+          <p>Created appointment for Jane Smith on March 27, 2025 at 8:00 AM</p>
+          <pre>${JSON.stringify(demoAppointment, null, 2)}</pre>
+        `;
+      } catch (e) {
+        console.error('Error creating test appointment:', e);
+        
+        const debugInfo = document.getElementById('debug-info');
+        debugInfo.innerHTML = `<p>Error creating appointment: ${e.message}</p>`;
+      }
+    }
+    
+    // Fix problematic date formats in existing appointments
+    function fixAppointmentDates() {
+      const savedAppointmentsString = localStorage.getItem('demo-appointments');
+      if (!savedAppointmentsString) {
+        document.getElementById('debug-info').innerHTML = '<p>No appointments to fix</p>';
+        return;
+      }
+      
+      try {
+        const appointments = JSON.parse(savedAppointmentsString);
+        if (!appointments || !Array.isArray(appointments) || appointments.length === 0) {
+          document.getElementById('debug-info').innerHTML = '<p>No valid appointments to fix</p>';
+          return;
+        }
+        
+        let fixedCount = 0;
+        
+        // Fix each appointment
+        appointments.forEach(appointment => {
+          // Check if startTime is not an ISO string
+          if (appointment.startTime && (typeof appointment.startTime === 'object' || !appointment.startTime.includes('T'))) {
+            try {
+              const date = new Date(appointment.startTime);
+              appointment.startTime = date.toISOString();
+              fixedCount++;
+            } catch (e) {
+              console.error('Error fixing startTime:', e);
+            }
+          }
+          
+          // Check if endTime is not an ISO string
+          if (appointment.endTime && (typeof appointment.endTime === 'object' || !appointment.endTime.includes('T'))) {
+            try {
+              const date = new Date(appointment.endTime);
+              appointment.endTime = date.toISOString();
+              fixedCount++;
+            } catch (e) {
+              console.error('Error fixing endTime:', e);
+            }
+          }
+        });
+        
+        // Save fixed appointments back to localStorage
+        localStorage.setItem('demo-appointments', JSON.stringify(appointments));
+        
+        displayAppointments();
+        
+        const debugInfo = document.getElementById('debug-info');
+        debugInfo.innerHTML = `
+          <div class="success">Fixed ${fixedCount} date fields in ${appointments.length} appointments</div>
+          <p>Appointments have been updated with proper ISO date strings</p>
+          <p>Go to the <a href="/appointments?demo=true" style="color: #90cdf4;">appointments page</a> to see them</p>
+        `;
+      } catch (e) {
+        console.error('Error fixing appointments:', e);
+        
+        const debugInfo = document.getElementById('debug-info');
+        debugInfo.innerHTML = `<p>Error fixing appointments: ${e.message}</p>`;
+      }
+    }
+    
+    // Run on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      displayAppointments();
+    });
+  </script>
+</body>
+</html> 

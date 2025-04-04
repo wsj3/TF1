@@ -1,10 +1,11 @@
-// API Status endpoint - added comment to trigger Vercel deployment
+/**
+ * Simple API endpoint to check server status
+ */
 export default function handler(req, res) {
   res.status(200).json({
     status: 'ok',
-    message: 'API is running',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'Not set',
-    query: req.query
+    environment: process.env.NODE_ENV,
+    prismaConnected: !!global.prisma || process.env.NODE_ENV === 'production'
   });
 } 

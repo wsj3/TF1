@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Layout from '../components/Layout';
-import { withAuth, useAuth } from '../utils/auth';
+import { withPageAuth, useAuth } from '../utils/auth';
+import { fetchBillingApi, safeFetch } from '../utils/apiHelpers';
 
 function Billing() {
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
+  const [mounted, setMounted] = useState(false);
   const [billingRecords, setBillingRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -26,72 +28,91 @@ function Billing() {
     clientId: 'all',
     dateRange: 'all'
   });
+  const [demoMode, setDemoMode] = useState(false);
   
-  // Fetch billing data on component mount
+  // Set mounted state
   useEffect(() => {
-    async function fetchData() {
-      try {
-        setLoading(true);
-        console.log('Fetching billing data...');
-        
-        // Fetch billing records from our API endpoint
-        const timestamp = Date.now();
-        const response = await fetch(`/api/billing?t=${timestamp}`);
-        
-        if (!response.ok) {
-          throw new Error(`API returned status ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log('Billing data received:', data);
-        
-        // Check if the response structure is as expected
-        if (data.billingRecords && Array.isArray(data.billingRecords)) {
-          setBillingRecords(data.billingRecords);
-        } else {
-          console.warn('Unexpected API response format:', data);
-          setBillingRecords([]);
-        }
-        
-        // Also fetch clients and sessions for the new billing form
-        const clientsResponse = await fetch(`/api/clients?t=${timestamp}`);
-        if (clientsResponse.ok) {
-          const clientsData = await clientsResponse.json();
-          if (clientsData.clients && Array.isArray(clientsData.clients)) {
-            setClients(clientsData.clients);
-          }
-        }
-        
-        const sessionsResponse = await fetch(`/api/sessions?t=${timestamp}`);
-        if (sessionsResponse.ok) {
-          const sessionsData = await sessionsResponse.json();
-          if (sessionsData.sessions && Array.isArray(sessionsData.sessions)) {
-            setSessions(sessionsData.sessions);
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching billing data:', err);
-        setError(err.message || 'Failed to load billing data');
-        // Try demo mode as fallback
-        try {
-          const demoResponse = await fetch(`/api/billing?demo=true&t=${Date.now()}`);
-          if (demoResponse.ok) {
-            const demoData = await demoResponse.json();
-            if (demoData.billingRecords && Array.isArray(demoData.billingRecords)) {
-              setBillingRecords(demoData.billingRecords);
-              setError('Using demo data due to API connection issues');
-            }
-          }
-        } catch (demoErr) {
-          console.error('Error fetching demo billing data:', demoErr);
-        }
-      } finally {
-        setLoading(false);
-      }
-    }
-    
-    fetchData();
+    setMounted(true);
   }, []);
+
+  // Fetch billing data when component is mounted and user is available
+  useEffect(() => {
+    if (mounted && user) {
+      fetchData();
+    }
+  }, [mounted, user]);
+  
+  async function fetchData() {
+    try {
+      setLoading(true);
+      console.log('Fetching billing data...');
+      
+      // Use our safe API helper
+      const result = await fetchBillingApi();
+      
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      
+      const data = result.data;
+      console.log('Billing data received:', data);
+      
+      // Check if the response structure is as expected
+      if (data.billingRecords && Array.isArray(data.billingRecords)) {
+        setBillingRecords(data.billingRecords);
+      } else {
+        console.warn('Unexpected API response format:', data);
+        setBillingRecords([]);
+      }
+      
+      // Also fetch clients and sessions for the new billing form
+      const clientsResult = await safeFetch('/api/clients?demo=true');
+      if (clientsResult.success) {
+        const clientsData = clientsResult.data;
+        if (clientsData.clients && Array.isArray(clientsData.clients)) {
+          setClients(clientsData.clients);
+        }
+      }
+      
+      const sessionsResult = await safeFetch('/api/sessions?demo=true');
+      if (sessionsResult.success) {
+        const sessionsData = sessionsResult.data;
+        if (sessionsData.sessions && Array.isArray(sessionsData.sessions)) {
+          setSessions(sessionsData.sessions);
+        }
+      }
+      
+      if (data.demoMode) {
+        setDemoMode(true);
+        setError(null); // Don't show error for demo mode
+      }
+    } catch (err) {
+      console.error('Error fetching billing data:', err);
+      setError(err.message || 'Failed to load billing data');
+      
+      // Try demo mode as fallback - but we should already be using demo mode automatically
+      try {
+        const demoResult = await fetchBillingApi({ demo: true });
+        if (demoResult.success) {
+          const demoData = demoResult.data;
+          if (demoData.billingRecords && Array.isArray(demoData.billingRecords)) {
+            setBillingRecords(demoData.billingRecords);
+            setError('Using demo data due to API connection issues');
+          }
+        }
+      } catch (demoErr) {
+        console.error('Error fetching demo billing data:', demoErr);
+        setBillingRecords([]); // Ensure we have at least an empty array
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+  
+  // Don't render anything until mounted
+  if (!mounted) {
+    return null;
+  }
   
   // Handle new billing record submission
   const handleSubmit = async (e) => {
@@ -106,12 +127,9 @@ function Billing() {
       setSubmitting(true);
       setError(null);
       
-      // Submit to API
-      const response = await fetch('/api/billing', {
+      // Submit to API using safe helper
+      const result = await safeFetch('/api/billing', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           ...newBillingForm,
           therapistId: user?.id,
@@ -119,11 +137,11 @@ function Billing() {
         })
       });
       
-      if (!response.ok) {
-        throw new Error(`API returned status ${response.status}`);
+      if (!result.success) {
+        throw new Error(result.error);
       }
       
-      const data = await response.json();
+      const data = result.data;
       
       // Add the new billing record to the list
       setBillingRecords([...billingRecords, data.billingRecord]);
@@ -583,4 +601,4 @@ function Billing() {
   );
 }
 
-export default withAuth(Billing); 
+export default withPageAuth(Billing); 

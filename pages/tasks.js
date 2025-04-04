@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Layout from '../components/Layout';
 import { withAuth, useAuth } from '../utils/auth';
+import { fetchTasksApi, createTaskApi, fetchClientsApi } from '../utils/apiHelpers';
 
 function Tasks() {
   const { user, loading: authLoading } = useAuth();
@@ -17,6 +18,7 @@ function Tasks() {
   const [clients, setClients] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [filter, setFilter] = useState('all'); // all, pending, inProgress, completed
+  const [demoMode, setDemoMode] = useState(false);
   
   // Fetch tasks on component mount
   useEffect(() => {
@@ -25,49 +27,51 @@ function Tasks() {
         setLoading(true);
         console.log('Fetching tasks data...');
         
-        // Fetch tasks from our API endpoint
-        const timestamp = Date.now();
-        const response = await fetch(`/api/tasks?t=${timestamp}`);
+        // Use our safe API helper to fetch tasks
+        const result = await fetchTasksApi();
         
-        if (!response.ok) {
-          throw new Error(`API returned status ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log('Tasks data received:', data);
-        
-        // Check if the response structure is as expected
-        if (data.tasks && Array.isArray(data.tasks)) {
-          setTasks(data.tasks);
+        if (result.success) {
+          console.log('Tasks data received:', result.data);
+          
+          // Check if we're using demo data
+          if (result.data.demoMode) {
+            setDemoMode(true);
+            setError(null);
+          } else {
+            setDemoMode(false);
+            setError(null);
+          }
+          
+          // Set tasks from the response
+          if (result.data.tasks && Array.isArray(result.data.tasks)) {
+            setTasks(result.data.tasks);
+          } else {
+            console.warn('Unexpected API response format:', result.data);
+            setTasks([]);
+          }
         } else {
-          console.warn('Unexpected API response format:', data);
+          // Handle API error
+          console.error('Error from API:', result.error);
+          setError(result.error || 'Failed to load tasks');
           setTasks([]);
         }
         
-        // Also fetch clients for the new task form
-        const clientsResponse = await fetch(`/api/clients?t=${timestamp}`);
-        if (clientsResponse.ok) {
-          const clientsData = await clientsResponse.json();
-          if (clientsData.clients && Array.isArray(clientsData.clients)) {
-            setClients(clientsData.clients);
+        // Also fetch clients for the new task form using our safe API helper
+        try {
+          const clientsResult = await fetchClientsApi();
+          
+          if (clientsResult.success && clientsResult.data.clients) {
+            setClients(clientsResult.data.clients);
+          } else {
+            console.warn('Error or unexpected format from clients API:', clientsResult);
           }
+        } catch (clientErr) {
+          console.error('Error fetching clients:', clientErr);
         }
       } catch (err) {
-        console.error('Error fetching tasks:', err);
+        console.error('Error in fetchData:', err);
         setError(err.message || 'Failed to load tasks');
-        // Try demo mode as fallback
-        try {
-          const demoResponse = await fetch(`/api/tasks?demo=true&t=${Date.now()}`);
-          if (demoResponse.ok) {
-            const demoData = await demoResponse.json();
-            if (demoData.tasks && Array.isArray(demoData.tasks)) {
-              setTasks(demoData.tasks);
-              setError('Using demo data due to API connection issues');
-            }
-          }
-        } catch (demoErr) {
-          console.error('Error fetching demo tasks:', demoErr);
-        }
+        setTasks([]);
       } finally {
         setLoading(false);
       }
@@ -89,34 +93,29 @@ function Tasks() {
       setSubmitting(true);
       setError(null);
       
-      // Submit to API
-      const response = await fetch('/api/tasks', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          ...newTaskForm,
-          therapistId: user?.id
-        })
+      // Use our safe API helper to create task
+      const result = await createTaskApi({
+        ...newTaskForm,
+        therapistId: user?.id
       });
       
-      if (!response.ok) {
-        throw new Error(`API returned status ${response.status}`);
+      if (result.success) {
+        // Add the new task to the list
+        if (result.data.task) {
+          setTasks([...tasks, result.data.task]);
+          
+          // Reset the form
+          setNewTaskForm({ 
+            title: '', 
+            description: '', 
+            dueDate: '', 
+            clientId: ''
+          });
+        }
+      } else {
+        // Handle API error
+        setError(result.error || 'Failed to create task');
       }
-      
-      const data = await response.json();
-      
-      // Add the new task to the list
-      setTasks([...tasks, data.task]);
-      
-      // Reset form
-      setNewTaskForm({ 
-        title: '', 
-        description: '', 
-        dueDate: '', 
-        clientId: ''
-      });
     } catch (err) {
       console.error('Error creating task:', err);
       setError(err.message || 'Failed to create task');

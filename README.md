@@ -20,6 +20,22 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Gemini Integration
+
+This project uses Google's Gemini AI for the assistive features. To use Gemini:
+
+1. Obtain a Gemini API key from [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Add the API key to your `.env.local` file:
+   ```
+   GOOGLE_AI_API_KEY=your_gemini_api_key_here
+   ```
+3. Test your Gemini integration:
+   ```bash
+   node scripts/test-gemini.js
+   ```
+
+The AI assistant uses the Gemini 1.5 Pro model for generating responses and can help with scheduling appointments, managing client information, and other therapy practice needs.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

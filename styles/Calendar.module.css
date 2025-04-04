@@ -1,0 +1,92 @@
+/* Calendar container */
+.calendarWrapper {
+  height: calc(100vh - 2rem);
+  background: #1a202c;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+/* Hide non-business hours */
+.calendarWrapper :global(.fc-timegrid-slot[data-time]:not([data-time^="07"]):not([data-time^="08"]):not([data-time^="09"]):not([data-time^="10"]):not([data-time^="11"]):not([data-time^="12"]):not([data-time^="13"]):not([data-time^="14"]):not([data-time^="15"]):not([data-time^="16"]):not([data-time^="17"])) {
+  display: none !important;
+}
+
+/* Calendar base styles */
+.calendarWrapper :global(.fc) {
+  height: 100% !important;
+  background: #1a202c;
+  color: #e2e8f0;
+}
+
+/* Time grid */
+.calendarWrapper :global(.fc-timegrid-slot) {
+  height: 6.5rem !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.calendarWrapper :global(.fc-timegrid-col) {
+  min-width: 150px !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Headers */
+.calendarWrapper :global(.fc-col-header) {
+  background-color: #2d3748;
+}
+
+.calendarWrapper :global(.fc-col-header-cell) {
+  padding: 1rem 0.5rem;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.calendarWrapper :global(.fc-col-header-cell-cushion) {
+  color: #e2e8f0;
+  font-weight: 600;
+  font-size: 1rem;
+  padding: 0.5rem;
+}
+
+/* Time labels */
+.calendarWrapper :global(.fc-timegrid-axis) {
+  padding: 0.5rem;
+  width: 80px !important;
+  min-width: 80px !important;
+}
+
+.calendarWrapper :global(.fc-timegrid-slot-label) {
+  color: #e2e8f0;
+  font-size: 0.875rem;
+}
+
+/* Events */
+.calendarWrapper :global(.fc-timegrid-event) {
+  min-height: 80px !important;
+  margin: 2px !important;
+  border-radius: 6px !important;
+  border: none !important;
+}
+
+.calendarWrapper :global(.fc-timegrid-event .fc-event-main) {
+  padding: 0.5rem !important;
+}
+
+/* Buttons */
+.calendarWrapper :global(.fc-button) {
+  background-color: #2d3748 !important;
+  border-color: #2d3748 !important;
+  color: #e2e8f0 !important;
+  padding: 0.5rem 1rem !important;
+  font-weight: 500 !important;
+  border-radius: 0.375rem !important;
+}
+
+.calendarWrapper :global(.fc-button:hover) {
+  background-color: #4a5568 !important;
+  border-color: #4a5568 !important;
+}
+
+.calendarWrapper :global(.fc-button-active) {
+  background-color: #4a6cf7 !important;
+  border-color: #4a6cf7 !important;
+} 

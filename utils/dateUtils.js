@@ -305,21 +305,18 @@ export function formatDateForCalendar(dateStr) {
   if (!dateStr) return null;
   
   try {
-    // Parse the date
-    const dateObj = parseDateFromStorage(dateStr);
-    if (!dateObj) return null;
+    // Parse the date in local timezone
+    const dateObj = new Date(dateStr);
+    if (!dateObj || isNaN(dateObj.getTime())) return null;
     
-    // Format for FullCalendar
+    // Format in local timezone without 'Z' suffix to prevent UTC conversion
     const year = dateObj.getFullYear();
     const month = String(dateObj.getMonth() + 1).padStart(2, '0');
     const day = String(dateObj.getDate()).padStart(2, '0');
     const hours = String(dateObj.getHours()).padStart(2, '0');
     const minutes = String(dateObj.getMinutes()).padStart(2, '0');
     
-    // IMPORTANT: For FullCalendar, we add Z to explicitly make it UTC
-    // This counterintuitive approach ensures that FullCalendar doesn't try to do
-    // its own timezone adjustment, since it will see this as already in UTC
-    return `${year}-${month}-${day}T${hours}:${minutes}:00Z`;
+    return `${year}-${month}-${day}T${hours}:${minutes}:00`;
   } catch (error) {
     console.error('Error formatting date for calendar:', error);
     return null;

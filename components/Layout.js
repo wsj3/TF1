@@ -4,7 +4,7 @@ import Sidebar from './Sidebar';
 import TopNav from './TopNav';
 
 export default function Layout({ children, title = 'Therapist\'s Friend' }) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const isAuthenticated = !!user;
 
   return (
@@ -15,20 +15,42 @@ export default function Layout({ children, title = 'Therapist\'s Friend' }) {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      {isAuthenticated && (
-        <>
-          {/* Sidebar Navigation */}
-          <Sidebar />
-          
-          {/* Top Navigation */}
-          <TopNav />
-        </>
-      )}
+      {/* Top Navigation - Always show */}
+      <TopNav />
+
+      {/* Sidebar Navigation - Only show when authenticated */}
+      {isAuthenticated && <Sidebar />}
 
       {/* Main Content */}
-      <main className={isAuthenticated ? "ml-64 pt-16 min-h-screen bg-gray-900" : "min-h-screen bg-gray-900"}>
+      <main className={`${isAuthenticated ? "ml-64" : ""} pt-16 min-h-screen bg-gray-900 relative`}>
         {children}
       </main>
+
+      <style jsx global>{`
+        /* Ensure proper stacking context */
+        nav {
+          z-index: 50;
+        }
+        
+        aside {
+          z-index: 40;
+        }
+        
+        main {
+          z-index: 1;
+        }
+        
+        /* Fix any potential overflow issues */
+        .fc-view-harness {
+          background-color: #1a202c;
+        }
+        
+        /* Ensure calendar buttons are above other elements */
+        .fc-header-toolbar {
+          position: relative;
+          z-index: 2;
+        }
+      `}</style>
     </div>
   );
 } 

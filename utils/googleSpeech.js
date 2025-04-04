@@ -260,288 +260,96 @@ export function playAudio(audioBuffer, onEnded = null) {
  * @param {object} options - Options for recording and recognition
  * @returns {Promise<string>} - The transcribed text
  */
-export const googleSpeechToText = async (options = {}) => {
-  // Default options with increased duration
-  const defaultOptions = {
-    duration: 20000, // Increased from 10000 to 20000 (20 seconds)
-    language: 'en-US',
-    interimResults: false,
-    silenceThreshold: -50, // dB threshold for silence detection
-    silenceTimeout: 2000,  // End recording after 2 seconds of silence
-    onStatus: () => {},
-    onGetCancelFn: () => {}
-  };
-  
-  const config = { ...defaultOptions, ...options };
-  
-  // Make sure we're in a browser environment
-  if (typeof window === 'undefined' || typeof navigator === 'undefined') {
-    return Promise.reject(new Error('Speech recognition requires a browser environment'));
-  }
-  
-  // Check for required browser features
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    return Promise.reject(new Error('Browser does not support mediaDevices.getUserMedia'));
-  }
-  
-  // Check for AudioContext
-  const AudioContext = window.AudioContext || window.webkitAudioContext;
-  if (!AudioContext) {
-    return Promise.reject(new Error('Browser does not support AudioContext'));
-  }
-  
-  return new Promise(async (resolve, reject) => {
-    let audioContext;
-    let mediaStream;
-    let mediaRecorder;
-    let analyzer;
-    let audioChunks = [];
-    let isRecording = false;
-    let isCancelled = false;
-    let silenceStartTime = null;
-    let recordingStartTime = Date.now();
-    let silenceDetectionInterval;
-    
-    // Create a cancel function that can be called to stop recording
-    const cancel = () => {
-      if (!isRecording) return;
-      
-      console.log('Cancelling speech recognition');
-      isCancelled = true;
-      cleanup();
-      resolve('');
-    };
-    
-    // Pass the cancel function back through the callback
-    config.onGetCancelFn(cancel);
-    
-    // Setup cleanup function
-    const cleanup = () => {
-      console.log('Cleaning up speech recognition resources');
-      isRecording = false;
-      
-      if (silenceDetectionInterval) {
-        clearInterval(silenceDetectionInterval);
-        silenceDetectionInterval = null;
-      }
-      
-      if (mediaStream) {
-        mediaStream.getTracks().forEach(track => track.stop());
-        mediaStream = null;
-      }
-      
-      if (audioContext) {
-        if (audioContext.state !== 'closed') {
-          try {
-            audioContext.close().catch(e => console.error('Error closing audio context:', e));
-          } catch (e) {
-            console.error('Error closing audio context:', e);
-          }
-        }
-        audioContext = null;
-      }
-    };
-    
-    try {
-      // Request microphone access
-      console.log('Requesting microphone access');
-      config.onStatus({ status: 'requesting_microphone' });
-      
-      mediaStream = await navigator.mediaDevices.getUserMedia({ audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true
-      }});
-      
-      // Create audio context and analyzer node for silence detection
-      audioContext = new AudioContext();
-      const microphone = audioContext.createMediaStreamSource(mediaStream);
-      analyzer = audioContext.createAnalyser();
-      analyzer.fftSize = 512;
-      analyzer.smoothingTimeConstant = 0.5;
-      microphone.connect(analyzer);
-      
-      // Setup media recorder
-      const options = { mimeType: 'audio/webm' };
-      mediaRecorder = new MediaRecorder(mediaStream, options);
-      
-      // Collect audio chunks
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunks.push(event.data);
-        }
-      };
-      
-      // Setup silence detection
-      const bufferLength = analyzer.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-      
-      silenceDetectionInterval = setInterval(() => {
-        if (!isRecording || !analyzer) return;
-        
-        // Get audio data
-        analyzer.getByteFrequencyData(dataArray);
-        
-        // Calculate average volume
-        let sum = 0;
-        for (let i = 0; i < bufferLength; i++) {
-          sum += dataArray[i];
-        }
-        const average = sum / bufferLength;
-        
-        // Convert to dB (rough approximation)
-        const volume = 20 * Math.log10(average / 255);
-        
-        // Calculate remaining time
-        const elapsedTime = Date.now() - recordingStartTime;
-        const remainingTime = Math.max(0, Math.floor((config.duration - elapsedTime) / 1000));
-        
-        // Update status with current volume and time left
-        config.onStatus({ 
-          status: 'recording', 
-          volume, 
-          timeLeft: remainingTime,
-          silenceDetected: volume < config.silenceThreshold
-        });
-        
-        // Check for silence
-        if (volume < config.silenceThreshold) {
-          if (silenceStartTime === null) {
-            silenceStartTime = Date.now();
-          } else if (Date.now() - silenceStartTime > config.silenceTimeout) {
-            console.log(`Silence detected for ${config.silenceTimeout}ms, stopping recording`);
-            config.onStatus({ status: 'silence_detected' });
-            
-            // Stop recording due to silence
-            if (mediaRecorder.state === 'recording') {
-              mediaRecorder.stop();
-            }
-          }
-        } else {
-          // Reset silence timer if sound is detected
-          silenceStartTime = null;
-        }
-        
-        // Check if we've reached the maximum duration
-        if (elapsedTime >= config.duration && mediaRecorder.state === 'recording') {
-          console.log('Maximum recording duration reached');
-          config.onStatus({ status: 'max_duration_reached' });
-          mediaRecorder.stop();
-        }
-      }, 100);
-      
-      // Handle completion
-      mediaRecorder.onstop = async () => {
-        console.log('Recording stopped, processing audio...');
-        config.onStatus({ status: 'processing' });
-        
-        // Clear the interval
-        if (silenceDetectionInterval) {
-          clearInterval(silenceDetectionInterval);
-          silenceDetectionInterval = null;
-        }
-        
-        // If cancelled, resolve with empty string
-        if (isCancelled) {
-          cleanup();
-          return resolve('');
-        }
-        
-        // Combine audio chunks
-        if (audioChunks.length === 0) {
-          console.log('No audio recorded');
-          cleanup();
-          return resolve('');
-        }
-        
-        try {
-          // Create blob and convert to base64
-          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-          const reader = new FileReader();
-          
-          reader.onload = async (e) => {
-            if (!e.target || !e.target.result) {
-              throw new Error('Failed to read audio data');
-            }
-            
-            // Get base64 data
-            const audioBytes = e.target.result;
-            const base64Audio = arrayBufferToBase64(audioBytes);
-            
-            try {
-              // Send to Google Speech-to-Text API endpoint
-              const response = await fetch('/api/google-speech/speech-to-text', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  audioContent: base64Audio,
-                  config: {
-                    encoding: 'WEBM_OPUS',
-                    sampleRateHertz: 48000,
-                    languageCode: config.language,
-                    enableAutomaticPunctuation: true,
-                    model: 'latest_long', // Use long-form model for better results
-                  }
-                }),
-              });
-              
-              if (!response.ok) {
-                throw new Error(`API call failed with status: ${response.status}`);
-              }
-              
-              const data = await response.json();
-              
-              if (data.error) {
-                throw new Error(data.error);
-              }
-              
-              // Clean up resources
-              cleanup();
-              
-              // Return the transcription
-              if (data.results && data.results.length > 0) {
-                console.log('Transcription successful:', data.results);
-                resolve(data.results);
-              } else {
-                console.log('No speech detected');
-                resolve('');
-              }
-            } catch (error) {
-              console.error('Speech-to-text API error:', error);
-              cleanup();
-              reject(error);
-            }
-          };
-          
-          reader.onerror = (error) => {
-            console.error('Error reading audio blob:', error);
-            cleanup();
-            reject(error);
-          };
-          
-          // Read the blob as ArrayBuffer
-          reader.readAsArrayBuffer(audioBlob);
-        } catch (error) {
-          console.error('Error processing audio:', error);
-          cleanup();
-          reject(error);
-        }
-      };
-      
-      // Start recording
-      console.log('Starting recording for up to', config.duration, 'ms');
-      config.onStatus({ status: 'recording', timeLeft: Math.floor(config.duration / 1000) });
-      mediaRecorder.start();
-      isRecording = true;
-      recordingStartTime = Date.now();
-      
-    } catch (error) {
-      console.error('Error in speech recognition:', error);
-      cleanup();
-      reject(error);
+export const googleSpeechToText = async ({ 
+  duration = 15000,
+  language = 'en-US',
+  silenceThreshold = -50,
+  silenceTimeout = 1500,
+  onStatus = () => {},
+  onGetCancelFn = () => {}
+}) => {
+  return new Promise((resolve, reject) => {
+    // Check if Web Speech API is available
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      reject(new Error('Speech recognition is not supported in this browser'));
+      return;
     }
+
+    // Use Web Speech API
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+
+    recognition.lang = language;
+    recognition.continuous = false;
+    recognition.interimResults = true;
+
+    let finalTranscript = '';
+    let timeoutId = null;
+
+    recognition.onstart = () => {
+      onStatus({ status: 'listening' });
+      console.log('Speech recognition started');
+    };
+
+    recognition.onresult = (event) => {
+      let interimTranscript = '';
+      
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript;
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+
+      // Reset silence timeout on new speech
+      if (interimTranscript) {
+        if (timeoutId) clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          recognition.stop();
+        }, silenceTimeout);
+      }
+
+      onStatus({ 
+        status: 'processing',
+        interim: interimTranscript,
+        final: finalTranscript
+      });
+    };
+
+    recognition.onerror = (event) => {
+      console.error('Speech recognition error:', event.error);
+      reject(event.error);
+    };
+
+    recognition.onend = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      onStatus({ status: 'done' });
+      
+      // Return results in a format similar to Google Cloud Speech-to-Text
+      resolve([{
+        alternatives: [{
+          transcript: finalTranscript,
+          confidence: 0.9
+        }]
+      }]);
+    };
+
+    // Start recognition
+    recognition.start();
+
+    // Provide cancel function
+    onGetCancelFn(() => {
+      if (timeoutId) clearTimeout(timeoutId);
+      recognition.stop();
+    });
+
+    // Stop after duration
+    setTimeout(() => {
+      if (timeoutId) clearTimeout(timeoutId);
+      recognition.stop();
+    }, duration);
   });
 };
 

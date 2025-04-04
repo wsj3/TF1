@@ -2,9 +2,12 @@ import { useState, useEffect } from 'react';
 import Layout from '../../components/Layout';
 import { formatDateForDisplay } from '../../utils/dateUtils';
 import { useRouter } from 'next/router';
+import { withPageAuth, useAuth } from '../../utils/auth';
 
-export default function TreatmentPlans() {
+function TreatmentPlans() {
+  const { user } = useAuth();
   const [plans, setPlans] = useState([]);
+  const [clients, setClients] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filters, setFilters] = useState({
@@ -13,28 +16,36 @@ export default function TreatmentPlans() {
   });
   const router = useRouter();
 
-  // Fetch treatment plans when component mounts
+  // Fetch treatment plans and clients when component mounts
   useEffect(() => {
-    const fetchPlans = async () => {
+    const fetchData = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch('/api/treatment-plans');
         
-        if (!response.ok) {
+        // Fetch treatment plans
+        const plansResponse = await fetch('/api/treatment-plans');
+        if (!plansResponse.ok) {
           throw new Error('Failed to fetch treatment plans');
         }
-        
-        const data = await response.json();
-        setPlans(data);
+        const plansData = await plansResponse.json();
+        setPlans(plansData);
+
+        // Fetch clients
+        const clientsResponse = await fetch('/api/clients');
+        if (!clientsResponse.ok) {
+          throw new Error('Failed to fetch clients');
+        }
+        const clientsData = await clientsResponse.json();
+        setClients(clientsData.clients || []);
       } catch (err) {
-        console.error('Error fetching treatment plans:', err);
-        setError('Failed to load treatment plans. Please try again.');
+        console.error('Error fetching data:', err);
+        setError('Failed to load data. Please try again.');
       } finally {
         setIsLoading(false);
       }
     };
     
-    fetchPlans();
+    fetchData();
   }, []);
 
   // Filter plans based on current filters
@@ -54,7 +65,7 @@ export default function TreatmentPlans() {
     <Layout>
       <div className="container mx-auto px-4 py-6">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Treatment Plans</h1>
+          <h1 className="text-2xl font-bold text-white">Treatment Plans</h1>
           <div className="flex space-x-3">
             <button
               onClick={() => router.push('/treatment-plans/templates')}
@@ -85,7 +96,7 @@ export default function TreatmentPlans() {
 
         {/* Filters */}
         <div className="bg-gray-800 p-4 rounded-md mb-6">
-          <h2 className="text-lg font-semibold mb-3">Filters</h2>
+          <h2 className="text-lg font-semibold mb-3 text-white">Filters</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label htmlFor="clientId" className="block text-sm font-medium text-gray-300 mb-1">
@@ -99,12 +110,11 @@ export default function TreatmentPlans() {
                 className="block w-full bg-gray-700 text-white rounded-md border-gray-600 py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="">All Clients</option>
-                {/* Demo clients */}
-                <option value="demo-1">Jane Smith (Demo)</option>
-                <option value="demo-2">Michael Johnson (Demo)</option>
-                <option value="demo-3">Sarah Williams (Demo)</option>
-                <option value="demo-4">John Doe (Demo)</option>
-                <option value="demo-5">Emily Davis (Demo)</option>
+                {Array.isArray(clients) && clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.firstName} {client.lastName}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -272,4 +282,6 @@ export default function TreatmentPlans() {
       </div>
     </Layout>
   );
-} 
+}
+
+export default withPageAuth(TreatmentPlans); 

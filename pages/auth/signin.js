@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../utils/auth';
 import Layout from '../../components/Layout';
-
-// Version number
+ 
 const VERSION = 'V.009';
 
 export default function SignIn() {
@@ -16,22 +15,23 @@ export default function SignIn() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
     setError('');
+    setIsLoading(true);
 
     try {
       const success = await login(email, password);
-      
       if (success) {
-        // Redirect to dashboard after successful login
-        const redirectUrl = router.query.callbackUrl || '/';
-        router.push(redirectUrl);
-      } else {
-        setError('Invalid credentials');
+        // Check for stored redirect URL
+        const redirectUrl = sessionStorage.getItem('redirectAfterLogin');
+        if (redirectUrl) {
+          sessionStorage.removeItem('redirectAfterLogin');
+          router.push(redirectUrl);
+        } else {
+          router.push('/dashboard');
+        }
       }
     } catch (err) {
-      setError('An error occurred during sign in');
-      console.error(err);
+      setError('Invalid credentials');
     } finally {
       setIsLoading(false);
     }

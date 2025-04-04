@@ -1,22 +1,43 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
+import Image from 'next/image';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faMagic } from '@fortawesome/free-solid-svg-icons';
+import { useAuth } from '../utils/auth';
+import dynamic from 'next/dynamic';
 import Script from 'next/script';
 
-// Default navigation items
-const defaultNavigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: 'home' },
-  { name: 'Tasks', href: '/tasks', icon: 'task' },
-  { name: 'Clients', href: '/clients', icon: 'user' },
-  { name: 'Appointments', href: '/appointments', icon: 'calendar' },
-  { name: 'Sessions', href: '/sessions', icon: 'chat' },
-  { name: 'Treatment Plans', href: '/treatment-plans', icon: 'treatment' },
-  { name: 'Diagnoses', href: '/diagnoses', icon: 'diagnosis' },
-  { name: 'Billing', href: '/billing', icon: 'billing' },
-  { name: 'Settings', href: '/settings', icon: 'settings' }
-];
+// Create a client-side only component for the ElevenLabs widget
+const ElevenLabsWidget = dynamic(
+  () => import('./widgets/ElevenLabsWidget'),
+  { ssr: false }
+);
 
-export default function Sidebar({ modules = defaultNavigation, selectedModuleIndex = 0, onModuleChange = () => {}, onLogout = () => {} }) {
+export default function Sidebar({ modules, selectedModuleIndex, onModuleChange, onLogout, clientInfo = null }) {
   const router = useRouter();
+  const { user } = useAuth();
+  
+  // Define navigation with admin check
+  const navigation = [
+    { name: 'Dashboard', href: '/dashboard', icon: 'home' },
+    { name: 'Tasks', href: '/tasks', icon: 'task' },
+    { name: 'Clients', href: '/clients', icon: 'user' },
+    { name: 'Appointments', href: '/appointments', icon: 'calendar' },
+    { name: 'Sessions', href: '/sessions', icon: 'chat' },
+    { name: 'Treatment Plans', href: '/treatment-plans', icon: 'treatment' },
+    { name: 'Diagnoses', href: '/diagnoses', icon: 'diagnosis' },
+    { name: 'Billing', href: '/billing', icon: 'billing' },
+    { name: 'Settings', href: '/settings', icon: 'settings' },
+  ];
+
+  // Get the final navigation items
+  const getNavigationItems = () => {
+    if (user?.isAdmin) {
+      return [...navigation, { name: 'Admin Console', href: '/admin', icon: 'settings' }];
+    }
+    return navigation;
+  };
 
   return (
     <div className="flex flex-col h-full bg-gray-900 w-64 fixed left-0 top-0">
@@ -69,18 +90,36 @@ export default function Sidebar({ modules = defaultNavigation, selectedModuleInd
           </nav>
         </div>
       </div>
+      
+      <div className="flex flex-col h-[calc(100vh-4rem)]">
+        <nav className="flex-grow mt-5 px-2 space-y-1 overflow-y-auto">
+          {getNavigationItems().map((item) => {
+            const isActive = router.pathname === item.href;
+            return (
+              <Link 
+                href={item.href} 
+                key={item.name}
+                className={`
+                  group flex items-center px-2 py-2 text-base font-medium rounded-md
+                  ${isActive ? 'bg-gray-800 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}
+                `}
+              >
+                <span className="mr-4">{getIcon(item.icon, isActive)}</span>
+                {item.name}
+                {item.badge && (
+                  <span className="ml-auto text-xs bg-green-700 text-white px-1 rounded">
+                    {item.badge}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
 
-      {/* Logout button */}
-      <div className="p-4 border-t border-gray-700">
-        <button
-          onClick={onLogout}
-          className="w-full flex items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 hover:text-white rounded-md"
-        >
-          <svg className="mr-3 h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
-          Logout
-        </button>
+          {/* ElevenLabs Widget */}
+          <div className="pl-2 mt-2">
+            <ElevenLabsWidget />
+          </div>
+        </nav>
       </div>
     </div>
   );

@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Layout from '../components/Layout';
-import { withAuth, useAuth } from '../utils/auth';
+import { withPageAuth, useAuth } from '../utils/auth';
+import { callApi } from '../utils/apiHelpers';
 
 function Diagnoses() {
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
+  const [mounted, setMounted] = useState(false);
   const [diagnoses, setDiagnoses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -18,64 +20,53 @@ function Diagnoses() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [demoMode, setDemoMode] = useState(false);
   
-  // Fetch diagnoses on component mount
+  // Set mounted state
   useEffect(() => {
-    async function fetchData() {
-      try {
-        setLoading(true);
-        console.log('Fetching diagnoses data...');
-        
-        // Fetch diagnoses from our API endpoint
-        const timestamp = Date.now();
-        const response = await fetch(`/api/diagnoses?t=${timestamp}`);
-        
-        if (!response.ok) {
-          throw new Error(`API returned status ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log('Diagnoses data received:', data);
-        
-        // Check if the response structure is as expected
-        if (data.diagnoses && Array.isArray(data.diagnoses)) {
-          setDiagnoses(data.diagnoses);
-        } else {
-          console.warn('Unexpected API response format:', data);
-          setDiagnoses([]);
-        }
-        
-        // Also fetch clients for the new diagnosis form
-        const clientsResponse = await fetch(`/api/clients?t=${timestamp}`);
-        if (clientsResponse.ok) {
-          const clientsData = await clientsResponse.json();
-          if (clientsData.clients && Array.isArray(clientsData.clients)) {
-            setClients(clientsData.clients);
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching diagnoses:', err);
-        setError(err.message || 'Failed to load diagnoses');
-        // Try demo mode as fallback
-        try {
-          const demoResponse = await fetch(`/api/diagnoses?demo=true&t=${Date.now()}`);
-          if (demoResponse.ok) {
-            const demoData = await demoResponse.json();
-            if (demoData.diagnoses && Array.isArray(demoData.diagnoses)) {
-              setDiagnoses(demoData.diagnoses);
-              setError('Using demo data due to API connection issues');
-            }
-          }
-        } catch (demoErr) {
-          console.error('Error fetching demo diagnoses:', demoErr);
-        }
-      } finally {
-        setLoading(false);
-      }
-    }
-    
-    fetchData();
+    setMounted(true);
   }, []);
+  
+  // Fetch data when component is mounted and user is available
+  useEffect(() => {
+    if (mounted && user) {
+      fetchData();
+    }
+  }, [mounted, user]);
+  
+  // Fetch all required data
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      console.log('Fetching data...');
+      
+      // Fetch diagnoses
+      const diagnosesResult = await callApi('/api/diagnoses');
+      if (diagnosesResult.success) {
+        setDiagnoses(diagnosesResult.data || []);
+        setDemoMode(!!diagnosesResult.demoMode);
+      } else {
+        console.error('Failed to fetch diagnoses:', diagnosesResult.message);
+        setDiagnoses([]);
+      }
+      
+      // Fetch clients
+      const clientsResult = await callApi('/api/clients');
+      if (clientsResult.success) {
+        setClients(clientsResult.data?.clients || []);
+      } else {
+        console.error('Failed to fetch clients:', clientsResult.message);
+        setClients([]);
+      }
+      
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError('Failed to load data. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
   
   // Handle new diagnosis submission
   const handleSubmit = async (e) => {
@@ -90,38 +81,32 @@ function Diagnoses() {
       setSubmitting(true);
       setError(null);
       
-      // Submit to API
-      const response = await fetch('/api/diagnoses', {
+      const result = await callApi('/api/diagnoses', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           ...newDiagnosisForm,
           therapistId: user?.id
         })
       });
       
-      if (!response.ok) {
-        throw new Error(`API returned status ${response.status}`);
+      if (result.success) {
+        // Add the new diagnosis to the list
+        setDiagnoses([...diagnoses, result.data]);
+        
+        // Reset form
+        setNewDiagnosisForm({
+          clientId: '',
+          code: '',
+          description: '',
+          notes: '',
+          diagnosisDate: ''
+        });
+        
+        // Close modal
+        document.getElementById('createDiagnosisModal').classList.add('hidden');
+      } else {
+        setError(result.message || 'Failed to create diagnosis');
       }
-      
-      const data = await response.json();
-      
-      // Add the new diagnosis to the list
-      setDiagnoses([...diagnoses, data.diagnosis]);
-      
-      // Reset form
-      setNewDiagnosisForm({
-        clientId: '',
-        code: '',
-        description: '',
-        notes: '',
-        diagnosisDate: ''
-      });
-      
-      // Close modal
-      document.getElementById('createDiagnosisModal').classList.add('hidden');
     } catch (err) {
       console.error('Error creating diagnosis:', err);
       setError(err.message || 'Failed to create diagnosis');
@@ -143,13 +128,18 @@ function Diagnoses() {
     const searchFields = [
       diagnosis.code,
       diagnosis.description,
-      diagnosis.Client?.firstName,
-      diagnosis.Client?.lastName,
+      diagnosis.client?.firstName,
+      diagnosis.client?.lastName,
       diagnosis.notes
     ].filter(Boolean).join(' ').toLowerCase();
     
     return searchTerm === '' || searchFields.includes(searchTerm.toLowerCase());
   });
+  
+  // Don't render until mounted
+  if (!mounted) {
+    return null;
+  }
   
   return (
     <Layout>
@@ -221,7 +211,9 @@ function Diagnoses() {
                         className={`border-b border-gray-700 hover:bg-gray-700 ${index % 2 === 0 ? 'bg-gray-750' : ''}`}
                       >
                         <td className="py-3 pr-4 text-white">
-                          {diagnosis.Client ? `${diagnosis.Client.firstName} ${diagnosis.Client.lastName}` : 'Unknown Client'}
+                          {diagnosis.client ? 
+                            `${diagnosis.client.firstName} ${diagnosis.client.lastName}` : 
+                            'Unknown Client'}
                         </td>
                         <td className="py-3 px-4 text-white font-mono">
                           {diagnosis.code}
@@ -230,9 +222,11 @@ function Diagnoses() {
                           {diagnosis.description}
                         </td>
                         <td className="py-3 px-4 text-gray-300">
-                          {diagnosis.diagnosisDate 
-                            ? new Date(diagnosis.diagnosisDate).toLocaleDateString() 
-                            : 'N/A'}
+                          {diagnosis.dateAssigned 
+                            ? new Date(diagnosis.dateAssigned).toLocaleDateString() 
+                            : diagnosis.diagnosisDate 
+                              ? new Date(diagnosis.diagnosisDate).toLocaleDateString()
+                              : 'N/A'}
                         </td>
                         <td className="py-3 pl-4 text-gray-300 max-w-xs truncate">
                           {diagnosis.notes || 'No notes'}
@@ -282,7 +276,7 @@ function Diagnoses() {
                   required
                 >
                   <option value="">Select a client</option>
-                  {clients.map(client => (
+                  {Array.isArray(clients) && clients.map(client => (
                     <option key={client.id} value={client.id}>
                       {client.firstName} {client.lastName}
                     </option>
@@ -369,4 +363,4 @@ function Diagnoses() {
   );
 }
 
-export default withAuth(Diagnoses); 
+export default withPageAuth(Diagnoses); 

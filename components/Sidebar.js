@@ -8,15 +8,29 @@ import { useAuth } from '../utils/auth';
 import dynamic from 'next/dynamic';
 import Script from 'next/script';
 
-// Create a client-side only component for the ElevenLabs widget
+// Create a client-side only component for the ElevenLabs widget with error boundaries
 const ElevenLabsWidget = dynamic(
   () => import('./widgets/ElevenLabsWidget'),
-  { ssr: false }
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="p-3 bg-gray-800 rounded-md mt-4">
+        <div className="animate-pulse flex space-x-4">
+          <div className="flex-1 space-y-2 py-1">
+            <div className="h-2 bg-gray-700 rounded"></div>
+            <div className="h-2 bg-gray-700 rounded w-5/6"></div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 );
 
-export default function Sidebar({ modules, selectedModuleIndex, onModuleChange, onLogout, clientInfo = null }) {
+export default function Sidebar({ modules = [], selectedModuleIndex = 0, onModuleChange = () => {}, onLogout, clientInfo = null }) {
   const router = useRouter();
   const { user } = useAuth();
+  const [widgetLoaded, setWidgetLoaded] = useState(false);
+  const [widgetError, setWidgetError] = useState(false);
   
   // Define navigation with admin check
   const navigation = [
@@ -30,6 +44,16 @@ export default function Sidebar({ modules, selectedModuleIndex, onModuleChange, 
     { name: 'Billing', href: '/billing', icon: 'billing' },
     { name: 'Settings', href: '/settings', icon: 'settings' },
   ];
+
+  // Handle script loading errors
+  const handleScriptError = () => {
+    console.error('Failed to load ElevenLabs widget script');
+    setWidgetError(true);
+  };
+
+  const handleScriptLoad = () => {
+    setWidgetLoaded(true);
+  };
 
   // Get the final navigation items
   const getNavigationItems = () => {
@@ -49,7 +73,7 @@ export default function Sidebar({ modules, selectedModuleIndex, onModuleChange, 
           </div>
           <nav className="mt-5 flex-1 px-2 space-y-1">
             {/* Navigation Items */}
-            {modules.map((module, index) => (
+            {modules && modules.length > 0 ? modules.map((module, index) => (
               <button
                 key={module.name}
                 onClick={() => onModuleChange(index)}
@@ -62,31 +86,46 @@ export default function Sidebar({ modules, selectedModuleIndex, onModuleChange, 
                 {getIcon(module.icon, selectedModuleIndex === index)}
                 <span className="ml-3">{module.name}</span>
               </button>
-            ))}
+            )) : null}
 
-            {/* ElevenLabs Widget */}
-            <div className="mt-2">
-              <style jsx global>{`
-                elevenlabs-convai {
-                  --background-color: #111827;
-                  --text-color: #000000;
-                  --button-color: #000000;
-                  --button-text-color: #ffffff;
-                  --border-color: #e1e1e1;
-                  --focus-outline-color: #000000;
-                  --card-radius: 20px;
-                  --button-radius: 32px;
-                  --avatar-first-color: #EDB035;
-                  --avatar-second-color: #F5CAB8;
-                  position: relative !important;
-                  right: auto !important;
-                  bottom: auto !important;
-                  width: 100% !important;
-                }
-              `}</style>
-              <elevenlabs-convai agent-id="JpEws8YUu0EDKkpvZPOt"></elevenlabs-convai>
-              <Script src="https://elevenlabs.io/convai-widget/index.js" strategy="lazyOnload" />
-            </div>
+            {/* ElevenLabs Widget - Only in production */}
+            {process.env.NODE_ENV === 'production' && (
+              <div className="mt-2">
+                <style jsx global>{`
+                  elevenlabs-convai {
+                    --background-color: #111827;
+                    --text-color: #000000;
+                    --button-color: #000000;
+                    --button-text-color: #ffffff;
+                    --border-color: #e1e1e1;
+                    --focus-outline-color: #000000;
+                    --card-radius: 20px;
+                    --button-radius: 32px;
+                    --avatar-first-color: #EDB035;
+                    --avatar-second-color: #F5CAB8;
+                    position: relative !important;
+                    right: auto !important;
+                    bottom: auto !important;
+                    width: 100% !important;
+                  }
+                `}</style>
+                {!widgetError ? (
+                  <>
+                    <elevenlabs-convai agent-id="JpEws8YUu0EDKkpvZPOt"></elevenlabs-convai>
+                    <Script 
+                      src="https://elevenlabs.io/convai-widget/index.js" 
+                      strategy="lazyOnload"
+                      onError={handleScriptError}
+                      onLoad={handleScriptLoad}
+                    />
+                  </>
+                ) : (
+                  <div className="p-3 bg-gray-800 rounded-md mt-4">
+                    <p className="text-xs text-gray-400">AI Assistant unavailable</p>
+                  </div>
+                )}
+              </div>
+            )}
           </nav>
         </div>
       </div>
@@ -115,9 +154,15 @@ export default function Sidebar({ modules, selectedModuleIndex, onModuleChange, 
             );
           })}
 
-          {/* ElevenLabs Widget */}
+          {/* ElevenLabs Widget - Use safer component */}
           <div className="pl-2 mt-2">
-            <ElevenLabsWidget />
+            {process.env.NODE_ENV !== 'production' ? (
+              <div className="p-3 bg-gray-800 rounded-md">
+                <p className="text-xs text-gray-400">AI Assistant (dev mode)</p>
+              </div>
+            ) : (
+              <ElevenLabsWidget />
+            )}
           </div>
         </nav>
       </div>

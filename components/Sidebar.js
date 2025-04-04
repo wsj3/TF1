@@ -71,100 +71,102 @@ export default function Sidebar({ modules = [], selectedModuleIndex = 0, onModul
           <div className="flex items-center flex-shrink-0 px-4">
             <span className="text-xl font-semibold text-white">Therapist's Friend</span>
           </div>
+          
+          {/* Main navigation */}
           <nav className="mt-5 flex-1 px-2 space-y-1">
-            {/* Navigation Items */}
-            {modules && modules.length > 0 ? modules.map((module, index) => (
-              <button
-                key={module.name}
-                onClick={() => onModuleChange(index)}
-                className={`${
-                  selectedModuleIndex === index
-                    ? 'bg-gray-800 text-white'
-                    : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                } group flex items-center px-2 py-2 text-sm font-medium rounded-md w-full`}
-              >
-                {getIcon(module.icon, selectedModuleIndex === index)}
-                <span className="ml-3">{module.name}</span>
-              </button>
-            )) : null}
+            {getNavigationItems().map((item) => {
+              const isActive = router.pathname === item.href;
+              return (
+                <Link 
+                  href={item.href} 
+                  key={item.name}
+                  className={`
+                    group flex items-center px-2 py-2 text-base font-medium rounded-md
+                    ${isActive ? 'bg-gray-800 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}
+                  `}
+                >
+                  <span className="mr-4">{getIcon(item.icon, isActive)}</span>
+                  {item.name}
+                  {item.badge && (
+                    <span className="ml-auto text-xs bg-green-700 text-white px-1 rounded">
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
 
-            {/* ElevenLabs Widget - Only in production */}
-            {process.env.NODE_ENV === 'production' && (
-              <div className="mt-2">
-                <style jsx global>{`
-                  elevenlabs-convai {
-                    --background-color: #111827;
-                    --text-color: #000000;
-                    --button-color: #000000;
-                    --button-text-color: #ffffff;
-                    --border-color: #e1e1e1;
-                    --focus-outline-color: #000000;
-                    --card-radius: 20px;
-                    --button-radius: 32px;
-                    --avatar-first-color: #EDB035;
-                    --avatar-second-color: #F5CAB8;
-                    position: relative !important;
-                    right: auto !important;
-                    bottom: auto !important;
-                    width: 100% !important;
-                  }
-                `}</style>
-                {!widgetError ? (
-                  <>
-                    <elevenlabs-convai agent-id="JpEws8YUu0EDKkpvZPOt"></elevenlabs-convai>
-                    <Script 
-                      src="https://elevenlabs.io/convai-widget/index.js" 
-                      strategy="lazyOnload"
-                      onError={handleScriptError}
-                      onLoad={handleScriptLoad}
-                    />
-                  </>
-                ) : (
-                  <div className="p-3 bg-gray-800 rounded-md mt-4">
-                    <p className="text-xs text-gray-400">AI Assistant unavailable</p>
-                  </div>
-                )}
+            {/* Module buttons (if specified as props) */}
+            {modules && modules.length > 0 && (
+              <div className="mt-8 pt-4 border-t border-gray-700">
+                <h3 className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  Modules
+                </h3>
+                <div className="mt-1 space-y-1">
+                  {modules.map((module, index) => (
+                    <button
+                      key={module.name}
+                      onClick={() => onModuleChange(index)}
+                      className={`${
+                        selectedModuleIndex === index
+                          ? 'bg-gray-800 text-white'
+                          : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                      } group flex items-center px-2 py-2 text-sm font-medium rounded-md w-full`}
+                    >
+                      {getIcon(module.icon, selectedModuleIndex === index)}
+                      <span className="ml-3">{module.name}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
+
+            {/* ElevenLabs Widget - Use safer component */}
+            <div className="mt-6">
+              {process.env.NODE_ENV !== 'production' ? (
+                <div className="p-3 bg-gray-800 rounded-md">
+                  <p className="text-xs text-gray-400">AI Assistant (dev mode)</p>
+                </div>
+              ) : (
+                <>
+                  <style jsx global>{`
+                    elevenlabs-convai {
+                      --background-color: #111827;
+                      --text-color: #000000;
+                      --button-color: #000000;
+                      --button-text-color: #ffffff;
+                      --border-color: #e1e1e1;
+                      --focus-outline-color: #000000;
+                      --card-radius: 20px;
+                      --button-radius: 32px;
+                      --avatar-first-color: #EDB035;
+                      --avatar-second-color: #F5CAB8;
+                      position: relative !important;
+                      right: auto !important;
+                      bottom: auto !important;
+                      width: 100% !important;
+                    }
+                  `}</style>
+                  {!widgetError ? (
+                    <>
+                      <elevenlabs-convai agent-id="JpEws8YUu0EDKkpvZPOt"></elevenlabs-convai>
+                      <Script 
+                        src="https://elevenlabs.io/convai-widget/index.js" 
+                        strategy="lazyOnload"
+                        onError={handleScriptError}
+                        onLoad={handleScriptLoad}
+                      />
+                    </>
+                  ) : (
+                    <div className="p-3 bg-gray-800 rounded-md">
+                      <p className="text-xs text-gray-400">AI Assistant unavailable</p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </nav>
         </div>
-      </div>
-      
-      <div className="flex flex-col h-[calc(100vh-4rem)]">
-        <nav className="flex-grow mt-5 px-2 space-y-1 overflow-y-auto">
-          {getNavigationItems().map((item) => {
-            const isActive = router.pathname === item.href;
-            return (
-              <Link 
-                href={item.href} 
-                key={item.name}
-                className={`
-                  group flex items-center px-2 py-2 text-base font-medium rounded-md
-                  ${isActive ? 'bg-gray-800 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'}
-                `}
-              >
-                <span className="mr-4">{getIcon(item.icon, isActive)}</span>
-                {item.name}
-                {item.badge && (
-                  <span className="ml-auto text-xs bg-green-700 text-white px-1 rounded">
-                    {item.badge}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
-
-          {/* ElevenLabs Widget - Use safer component */}
-          <div className="pl-2 mt-2">
-            {process.env.NODE_ENV !== 'production' ? (
-              <div className="p-3 bg-gray-800 rounded-md">
-                <p className="text-xs text-gray-400">AI Assistant (dev mode)</p>
-              </div>
-            ) : (
-              <ElevenLabsWidget />
-            )}
-          </div>
-        </nav>
       </div>
     </div>
   );

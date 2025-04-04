@@ -2,6 +2,16 @@ import Head from 'next/head';
 import { useAuth } from '../utils/auth';
 import Sidebar from './Sidebar';
 import CustomTopNav from './CustomTopNav';
+import { useState, useEffect } from 'react';
+
+// Mock user for development
+const MOCK_DEV_USER = {
+  id: 'dev-user-1',
+  name: 'Development User',
+  email: 'dev@example.com',
+  role: 'admin',
+  isAdmin: true
+};
 
 // Import static export helper if available
 let isStaticExport = false;
@@ -39,8 +49,19 @@ function checkIsStaticExport() {
 
 export default function CustomLayout({ children, title = 'Therapist\'s Friend' }) {
   const { user } = useAuth();
-  const isAuthenticated = !!user;
+  const isDev = process.env.NODE_ENV === 'development';
+  
+  // Use mock user in development mode if no user is available
+  const effectiveUser = isDev ? (user || MOCK_DEV_USER) : user;
+  const isAuthenticated = !!effectiveUser;
+  
   const isExport = checkIsStaticExport();
+  const [isClient, setIsClient] = useState(false);
+
+  // Set client-side flag to avoid hydration mismatch
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // During static export, always render content without authentication checks
   if (isExport) {
@@ -61,30 +82,39 @@ export default function CustomLayout({ children, title = 'Therapist\'s Friend' }
     );
   }
 
-  if (!isAuthenticated) {
+  // In development mode, or if authenticated, show the full layout
+  if (isDev || isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-white">Checking authentication status...</div>
+      <div className="min-h-screen bg-gray-900">
+        <Head>
+          <title>{title}</title>
+          <meta name="description" content="Therapist's Friend - Practice Management" />
+          <link rel="icon" href="/favicon.ico" />
+        </Head>
+
+        {/* Always show navigation in development or when user is authenticated */}
+        <Sidebar />
+        <CustomTopNav />
+
+        {/* Main Content */}
+        <main className="ml-64 pt-16 min-h-screen bg-gray-900">
+          {isDev && isClient && (
+            <div className="max-w-7xl mx-auto px-4 pt-4">
+              <div className="bg-blue-900 text-white px-4 py-2 rounded-md text-sm">
+                Development Mode: Using mock user data
+              </div>
+            </div>
+          )}
+          {children}
+        </main>
       </div>
     );
   }
 
+  // Only show loading in production when not authenticated
   return (
-    <div className="min-h-screen bg-gray-900">
-      <Head>
-        <title>{title}</title>
-        <meta name="description" content="Therapist's Friend - Practice Management" />
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
-
-      {/* Always show navigation when user is authenticated */}
-      <Sidebar />
-      <CustomTopNav />
-
-      {/* Main Content */}
-      <main className="ml-64 pt-16 min-h-screen bg-gray-900">
-        {children}
-      </main>
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+      <div className="text-white">Checking authentication status...</div>
     </div>
   );
 } 

@@ -14,6 +14,7 @@ const nextConfig = {
     APP_NAME: 'Therapists Friend',
     APP_VERSION: '0.1.0',
     BUILD_VERSION: '14.0.4-fixed',
+    STATIC_EXPORT: process.env.STATIC_EXPORT || 'true',
   },
   // Optimize for serverless environments
   experimental: {
@@ -24,10 +25,15 @@ const nextConfig = {
   pageExtensions: ['tsx', 'ts', 'jsx', 'js'],
   // Configure which pages should be pre-rendered
   async exportPathMap(defaultPathMap, { dev, dir, outDir, distDir, buildId }) {
+    // Only include public pages in the static export
+    // All authenticated/dynamic routes will be handled by server-side rendering
     return {
       '/': { page: '/' },
       '/404': { page: '/404' },
-      // Remove dashboard and profile from static export
+      '/auth/signin': { page: '/auth/signin' },
+      '/auth/login': { page: '/auth/login' },
+      '/auth/simple-signin': { page: '/auth/simple-signin' },
+      // Explicitly exclude all other pages that require authentication
     }
   },
   poweredByHeader: false,

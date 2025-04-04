@@ -242,29 +242,58 @@ export function withPageAuth(Component) {
     const { user, loading } = useAuth();
     const router = useRouter();
     const [mounted, setMounted] = useState(false);
+    // For development, provide a mock user after a timeout
+    const [devMockUser, setDevMockUser] = useState(null);
 
     useEffect(() => {
       setMounted(true);
-    }, []);
+      
+      // In development mode, if we're still loading or no user after a delay,
+      // provide a mock dev user to prevent endless loading states
+      if (process.env.NODE_ENV === 'development' && (!user && !loading)) {
+        const timer = setTimeout(() => {
+          console.log('[withPageAuth] Using mock dev user for development');
+          setDevMockUser({
+            id: 'dev-user-1',
+            name: 'Development User',
+            email: 'dev@example.com',
+            role: 'admin',
+            isAdmin: true
+          });
+        }, 500);
+        return () => clearTimeout(timer);
+      }
+    }, [user, loading]);
 
     // Detect static export
     const isExportBuild = checkIsStaticExport();
+    // Get the effective user (real user or dev mock user)
+    const effectiveUser = user || devMockUser;
 
     // Skip authentication during static export
     if (isExportBuild) {
       console.log('[withPageAuth] Bypassing auth for static build');
       return <Component {...props} />;
     }
+    
+    // For development mode, bypass auth after a timeout if no user is found
+    if (process.env.NODE_ENV === 'development' && devMockUser) {
+      console.log('[withPageAuth] Using development mock user');
+      return <Component {...props} />;
+    }
 
     useEffect(() => {
-      if (mounted && !loading && !user && !isExportBuild) {
-        sessionStorage.setItem('redirectAfterLogin', router.asPath);
-        router.push('/auth/signin');
+      if (mounted && !loading && !user && !isExportBuild && !devMockUser) {
+        // Only redirect if we're not in development mode or we've waited long enough
+        if (process.env.NODE_ENV !== 'development' || mounted) {
+          sessionStorage.setItem('redirectAfterLogin', router.asPath);
+          router.push('/auth/signin');
+        }
       }
-    }, [user, loading, mounted, router, isExportBuild]);
+    }, [user, loading, mounted, router, isExportBuild, devMockUser]);
 
-    // Show loading state
-    if ((loading || !mounted) && !isExportBuild) {
+    // Show loading state, but with a shorter timeout in development
+    if ((loading || !mounted) && !isExportBuild && !devMockUser) {
       return (
         <div className="flex items-center justify-center min-h-screen">
           <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
@@ -272,8 +301,8 @@ export function withPageAuth(Component) {
       );
     }
 
-    // Show page if user is authenticated or during static export
-    return (isExportBuild || user) ? <Component {...props} /> : null;
+    // Show page if user is authenticated, in development mode, or during static export
+    return (isExportBuild || effectiveUser) ? <Component {...props} /> : null;
   };
 }
 

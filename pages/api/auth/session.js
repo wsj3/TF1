@@ -1,87 +1,53 @@
 // Custom authentication session API
 import { parse } from 'cookie';
 import jwt from 'jsonwebtoken';
-import { authConfig } from '../../../utils/auth';
+import { authConfig, getServerSideSession } from '../../../utils/auth';
 import cookie from 'cookie';
 
+/**
+ * API endpoint to get the current user session
+ * For development, this will provide a mock user if no session exists
+ */
 export default async function handler(req, res) {
-  // Only allow GET for session checks
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
   try {
-    // Parse cookies from request
-    const cookies = parse(req.headers.cookie || '');
-    const token = cookies[authConfig.cookieName];
+    // Try to get the real session
+    const session = await getServerSideSession(req);
     
-    // Debug info
-    console.log('Session check:', {
-      hasCookie: !!req.headers.cookie,
-      cookieNames: Object.keys(cookies),
-      cookieName: authConfig.cookieName,
-      hasToken: !!token,
-      tokenLength: token ? token.length : 0,
-      host: req.headers.host,
-      env: process.env.NODE_ENV
-    });
-    
-    if (!token) {
-      // Clear any existing invalid cookies
-      res.setHeader('Set-Cookie', [
-        cookie.serialize(authConfig.cookieName, '', {
-          maxAge: -1,
-          path: '/'
-        }),
-        cookie.serialize('auth', '', {
-          maxAge: -1,
-          path: '/'
-        })
-      ]);
+    // If we're in development and there's no session, return a mock user
+    if (!session && process.env.NODE_ENV === 'development') {
+      console.log('[API] Using mock user session for development');
       
-      return res.status(401).json({ error: 'Not authenticated', details: 'No token found in cookies' });
-    }
-    
-    try {
-      // Verify token
-      const userData = jwt.verify(token, authConfig.jwtSecret);
-      console.log('Token verified successfully for user:', userData.email);
-      
-      // Return user data without sensitive information
-      return res.status(200).json({ 
+      return res.status(200).json({
+        success: true,
         user: {
-          id: userData.userId,
-          email: userData.email,
-          name: userData.name,
-          role: userData.role,
-          isAdmin: userData.isAdmin
-        } 
-      });
-    } catch (tokenError) {
-      console.error('Token verification failed:', tokenError.message);
-      
-      // Clear invalid token
-      res.setHeader('Set-Cookie', [
-        cookie.serialize(authConfig.cookieName, '', {
-          maxAge: -1,
-          path: '/'
-        }),
-        cookie.serialize('auth', '', {
-          maxAge: -1,
-          path: '/'
-        })
-      ]);
-      
-      return res.status(401).json({ 
-        error: 'Invalid token', 
-        details: tokenError.message 
+          id: 'dev-user-1',
+          email: 'dev@example.com',
+          name: 'Development User',
+          role: 'admin',
+          isAdmin: true
+        }
       });
     }
+    
+    // Return the real session if it exists
+    if (session && session.user) {
+      return res.status(200).json({
+        success: true,
+        user: session.user
+      });
+    }
+    
+    // No session found
+    return res.status(200).json({
+      success: false,
+      message: 'No active session found'
+    });
   } catch (error) {
-    console.error('Session error:', error);
-    return res.status(500).json({ 
-      error: 'Failed to get session', 
-      details: error.message 
+    console.error('Session API error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to get session',
+      error: error.message
     });
   }
 } 

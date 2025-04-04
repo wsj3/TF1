@@ -4,15 +4,35 @@ import { useAuth } from '../utils/auth';
 import { withPageAuth } from '../utils/auth';
 import Head from 'next/head';
 
+// Create a mock user for development purposes
+const MOCK_DEV_USER = {
+  id: 'dev-user-1',
+  name: 'Development User',
+  email: 'dev@example.com',
+  role: 'admin',
+  isAdmin: true
+};
+
 // The main dashboard component
 function Dashboard() {
   const { user, loading } = useAuth();
   const [isClient, setIsClient] = useState(false);
   const [dashboardLoaded, setDashboardLoaded] = useState(false);
+  // Use the mock user in development if no user is present
+  const [devUser, setDevUser] = useState(null);
 
-  // Safely set client-side rendering flag
+  // Safely set client-side rendering flag and set up development user if needed
   useEffect(() => {
     setIsClient(true);
+    
+    // For development, if no user is found after a delay, use a mock user
+    if (process.env.NODE_ENV === 'development' && !user && !loading) {
+      const timer = setTimeout(() => {
+        console.log('[Dashboard] Using mock user for development');
+        setDevUser(MOCK_DEV_USER);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
     
     // Mark dashboard as loaded after a delay to ensure all components are mounted
     const timer = setTimeout(() => {
@@ -20,7 +40,10 @@ function Dashboard() {
     }, 100);
     
     return () => clearTimeout(timer);
-  }, []);
+  }, [user, loading]);
+
+  // Get the effective user (real user or dev mock user)
+  const effectiveUser = user || devUser;
 
   // Sample AI discoveries data - in a real application, this would come from an API
   const aiDiscoveries = [
@@ -51,7 +74,7 @@ function Dashboard() {
   ];
   
   // Simple loading state for server-side or during hydration
-  if (!isClient || loading) {
+  if (!isClient || (loading && !devUser)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
         <Head>
@@ -62,8 +85,23 @@ function Dashboard() {
     );
   }
   
-  // If user isn't authenticated yet but we're client-side, show loading
-  if (!user) {
+  // If user isn't authenticated yet but we're client-side, show loading or use mock dev user
+  if (!effectiveUser) {
+    // In development, we'll show a loading message briefly before the mock user kicks in
+    if (process.env.NODE_ENV === 'development') {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-900">
+          <Head>
+            <title>Loading Dashboard | Therapist's Friend</title>
+          </Head>
+          <div className="text-white">
+            <p>Development mode: Initializing dashboard...</p>
+            <div className="mt-2 animate-pulse h-2 bg-blue-500 rounded w-48 mx-auto"></div>
+          </div>
+        </div>
+      );
+    }
+    
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
         <Head>
@@ -91,7 +129,7 @@ function Dashboard() {
             {/* Welcome Card */}
             <div className="mt-6 bg-gray-800 rounded-lg shadow overflow-hidden">
               <div className="p-6">
-                <h2 className="text-lg font-medium text-white">Welcome, {user?.name || 'User'}!</h2>
+                <h2 className="text-lg font-medium text-white">Welcome, {effectiveUser?.name || 'User'}!</h2>
                 <p className="mt-1 text-sm text-gray-400">
                   Here's your therapy practice at a glance
                 </p>

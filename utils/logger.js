@@ -11,7 +11,7 @@ const LOG_LEVELS = {
 };
 
 // Get current log level from environment or default to 'info'
-const getCurrentLogLevel = () => {
+export const getCurrentLogLevel = () => {
   const envLevel = process.env.LOG_LEVEL?.toLowerCase();
   return LOG_LEVELS[envLevel] !== undefined ? envLevel : 'info';
 };
@@ -48,4 +48,7 @@ export const getLogger = (context) => {
       }
     }
   };
-}; 
+};
+
+// Default logger for direct use
+export const logger = getLogger('app'); 

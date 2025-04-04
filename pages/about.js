@@ -1,8 +1,8 @@
-import Layout from '../components/Layout';
+import CustomLayout from '../components/CustomLayout';
 
 export default function About() {
   return (
-    <Layout title="About | Therapist's Friend">
+    <CustomLayout title="About | Therapist's Friend">
       <div className="p-6">
         <h1 className="text-2xl font-bold text-white mb-4">About Therapist's Friend</h1>
         <div className="bg-gray-800 rounded-lg p-6">
@@ -91,6 +91,6 @@ export default function About() {
           </div>
         </div>
       </div>
-    </Layout>
+    </CustomLayout>
   );
 } 

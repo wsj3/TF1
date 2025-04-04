@@ -1,8 +1,8 @@
-import Layout from '../components/Layout';
+import CustomLayout from '../components/CustomLayout';
 
 export default function Help() {
   return (
-    <Layout title="Help | Therapist's Friend">
+    <CustomLayout title="Help | Therapist's Friend">
       <div className="p-6">
         <h1 className="text-2xl font-bold text-white mb-4">Help Center</h1>
         <div className="bg-gray-800 rounded-lg p-6">
@@ -38,6 +38,6 @@ export default function Help() {
           </div>
         </div>
       </div>
-    </Layout>
+    </CustomLayout>
   );
 } 

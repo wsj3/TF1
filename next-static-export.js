@@ -51,10 +51,31 @@ export const IS_STATIC_EXPORT = true;
 export const STATIC_EXPORT_MARKER = '.static-export-marker';
 
 /**
+ * Safely determine if we're in a development environment
+ * This helps distinguish between development and static export builds
+ */
+function isDevelopmentEnvironment() {
+  return (
+    process.env.NODE_ENV === 'development' ||
+    // Check for dev server port in browser
+    (typeof window !== 'undefined' && 
+     (window.location.port === '3000' || 
+      window.location.port === '3001' || 
+      window.location.hostname.includes('localhost')))
+  );
+}
+
+/**
  * Check if the current execution context is a static export
  * Uses multiple signals to detect static export environment
+ * BUT will explicitly return false for local development environments
  */
 export function isStaticExport() {
+  // Never treat development server as static export
+  if (isDevelopmentEnvironment()) {
+    return false;
+  }
+
   return (
     // Various environment signals
     IS_STATIC_EXPORT === true ||
@@ -124,8 +145,17 @@ const globalDetectionModule = `/**
  * Import this at the top of your components or pages for early detection
  */
 
-export const IS_STATIC_EXPORT = true;
-export const isStaticExport = () => true;
+// Detect development environment
+const isDevelopment = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
+
+// Only mark as static export in non-development environments
+export const IS_STATIC_EXPORT = !isDevelopment;
+
+// Safe isStaticExport function that checks for development
+export const isStaticExport = () => {
+  if (isDevelopment) return false;
+  return true;
+};
 `;
 
 try {

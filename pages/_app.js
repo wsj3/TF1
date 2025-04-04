@@ -12,6 +12,19 @@ try {
 
 // Helper to detect static export in various ways
 function checkIsStaticExport() {
+  // Development check - never consider localhost as static export
+  const isDevelopment = 
+    process.env.NODE_ENV === 'development' ||
+    (typeof window !== 'undefined' && (
+      window.location.port === '3000' || 
+      window.location.port === '3001' || 
+      window.location.hostname.includes('localhost')
+    ));
+  
+  if (isDevelopment) {
+    return false;
+  }
+  
   return (
     isStaticExport || 
     process.env.STATIC_EXPORT === 'true' || 

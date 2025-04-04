@@ -19,10 +19,22 @@ if (
 }
 
 /**
+ * Check if current environment is development
+ */
+function isDevelopment() {
+  return process.env.NODE_ENV === 'development';
+}
+
+/**
  * Checks if the current context is a static export
  * This function is duplicated from utils/static-export.js since imports are not allowed in middleware
  */
 function isStaticExport() {
+  // Never consider development environment as static export
+  if (isDevelopment()) {
+    return false;
+  }
+  
   return (
     // Global flag set above
     global.isStaticExport === true ||

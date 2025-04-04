@@ -199,9 +199,40 @@ export function AuthProvider({ children }) {
 // Custom hook to use auth
 export const useAuth = () => {
   const context = useContext(AuthContext);
+  
+  // Special handling for static export or when useAuth is used outside of AuthProvider
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    // Check for static export first
+    if (checkIsStaticExport()) {
+      console.log('[Auth] Providing mock auth context during static export');
+      // Return a mock context that won't cause errors
+      return {
+        user: { id: 'static-user', email: 'static@example.com', name: 'Static User' },
+        loading: false,
+        error: null,
+        login: async () => false,
+        logout: async () => false,
+        getSession: async () => null
+      };
+    }
+    
+    // If we're in development mode, provide a safer error that doesn't crash
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[Auth] useAuth hook used outside of AuthProvider. Providing mock context for development.');
+      return {
+        user: null,
+        loading: false,
+        error: new Error('useAuth used outside of AuthProvider'),
+        login: async () => { console.warn('Auth not initialized'); return false; },
+        logout: async () => { console.warn('Auth not initialized'); return false; },
+        getSession: async () => { console.warn('Auth not initialized'); return null; }
+      };
+    }
+    
+    // For production, still throw the error but with more context
+    throw new Error('useAuth must be used within an AuthProvider. Check if the component is wrapped with AuthProvider.');
   }
+  
   return context;
 };
 

@@ -6,25 +6,32 @@ declare global {
   var isStaticExport: boolean | undefined;
 }
 
+// Set global flag early to ensure it's available throughout the application
+if (
+  typeof global.isStaticExport === 'undefined' && 
+  (process.env.STATIC_EXPORT === 'true' || 
+   process.env.DOCKER_BUILD === 'true' ||
+   process.env.IS_EXPORT === 'true' ||
+   process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE === 'phase-production-build')
+) {
+  global.isStaticExport = true;
+  console.log('[middleware] Setting global.isStaticExport = true');
+}
+
 export function middleware(request: NextRequest) {
   try {
-    // Enhanced detection for static export/build environment
-    const isStaticBuild = 
-      process.env.STATIC_EXPORT === 'true' || 
-      global.isStaticExport === true ||
-      process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE === 'phase-production-build' ||
-      // Detect static generation by checking for missing request features
-      !request.cookies || typeof request.cookies.get !== 'function' ||
-      // Always skip during Docker build
-      process.env.DOCKER_BUILD === 'true';
+    // Force skip for all static exports - highest priority check
+    if (process.env.STATIC_EXPORT === 'true' || 
+        process.env.DOCKER_BUILD === 'true' ||
+        process.env.IS_EXPORT === 'true' ||
+        global.isStaticExport === true) {
+      console.log('[middleware] Bypassing auth - static export environment detected');
+      return NextResponse.next();
+    }
 
-    // Early return for all static builds/exports
-    if (isStaticBuild) {
-      // Set global flag for future middleware calls
-      if (typeof global.isStaticExport === 'undefined') {
-        global.isStaticExport = true;
-        console.log('Static export detected, bypassing authentication middleware');
-      }
+    // CRITICAL: Early check for static generation by testing if request is properly formed
+    if (!request || !request.cookies || typeof request.cookies.get !== 'function') {
+      console.log('[middleware] Bypassing auth - detected static generation (no cookies)');
       return NextResponse.next();
     }
 
@@ -35,7 +42,6 @@ export function middleware(request: NextRequest) {
     if (
       path.startsWith('/auth/') ||  // Auth pages
       path.startsWith('/_next/') ||  // Next.js resources
-      path.startsWith('/api/auth/') ||  // Auth API routes
       path.startsWith('/api/') ||   // Skip all API routes during build
       path === '/favicon.ico' ||
       path === '/' ||  // Homepage
@@ -45,29 +51,26 @@ export function middleware(request: NextRequest) {
     }
 
     // Safely check for auth token with improved error handling
-    let authToken = null;
     try {
-      if (request.cookies && typeof request.cookies.get === 'function') {
-        const authCookie = request.cookies.get('auth_token');
-        const tfAuthCookie = request.cookies.get('tf-auth-token');
-        authToken = authCookie?.value || tfAuthCookie?.value;
+      const authCookie = request.cookies.get('auth_token');
+      const tfAuthCookie = request.cookies.get('tf-auth-token');
+      const authToken = authCookie?.value || tfAuthCookie?.value;
+
+      // If no token found, redirect to login
+      if (!authToken) {
+        const loginUrl = new URL('/auth/simple-signin', request.url);
+        return NextResponse.redirect(loginUrl);
       }
     } catch (e) {
-      // If there's any error reading cookies, just continue without auth
-      console.warn('Error reading auth cookies:', e);
+      // If any error occurs reading cookies, just continue without auth
+      console.warn('[middleware] Error reading auth cookies:', e);
       return NextResponse.next();
-    }
-
-    // If no token found, redirect to login
-    if (!authToken) {
-      const loginUrl = new URL('/auth/simple-signin', request.url);
-      return NextResponse.redirect(loginUrl);
     }
 
     return NextResponse.next();
   } catch (error) {
     // If any error occurs in the middleware, log it and continue without auth
-    console.error('Auth middleware error:', error);
+    console.error('[middleware] Auth middleware error:', error);
     return NextResponse.next();
   }
 }

@@ -7,6 +7,7 @@
   },
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node next-static-export.js",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -15,7 +16,8 @@
     "postinstall": "npm rebuild esbuild",
     "heroku-prebuild": "npm install rimraf && node prebuild.js",
     "heroku-cleanup": "rm -rf node_modules package-lock.json",
-    "heroku-postbuild": "npm install --no-package-lock && npm run build"
+    "heroku-postbuild": "npm install --no-package-lock && npm run build",
+    "static-export": "STATIC_EXPORT=true DOCKER_BUILD=true IS_EXPORT=true NEXT_PHASE=phase-production-build node next-static-export.js && next build"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
@@ -42,7 +44,6 @@
     "@tailwindcss/forms": "^0.5.10",
     "@types/bcrypt": "^5.0.2",
     "@types/mongoose": "^5.11.96",
-    "@types/node": "^20",
     "@types/pg": "^8.11.10",
     "@types/react": "^18",
     "@types/react-dom": "^18",
@@ -102,6 +103,7 @@
     "@testing-library/jest-dom": "^6.4.2",
     "@testing-library/react": "^14.2.1",
     "@types/jest": "^29.5.12",
+    "@types/node": "^22.14.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "crypto-browserify": "^3.12.1",

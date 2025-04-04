@@ -11,10 +11,12 @@ apt-get update && apt-get install -y openssl libssl-dev
 # Set Node options to increase memory limit if needed
 export NODE_OPTIONS="--max-old-space-size=4096"
 
-# Set flags for build process
+# Set ALL possible flags for static export detection
 export STATIC_EXPORT=true
 export DOCKER_BUILD=true
-echo "Setting STATIC_EXPORT=true and DOCKER_BUILD=true for build..."
+export IS_EXPORT=true
+export NEXT_PHASE=phase-production-build
+echo "Setting all static export flags for build..."
 
 # Create .npmrc file to ensure proper installation settings
 echo "Configuring npm..."
@@ -31,6 +33,18 @@ fetch-retries=5
 network-timeout=100000
 NPMRC
 
+# Create or update .env.local with ALL export flags
+echo "Configuring build environment variables..."
+cat > .env.local << ENV
+STATIC_EXPORT=true
+DOCKER_BUILD=true
+IS_EXPORT=true
+NEXT_PHASE=phase-production-build
+ENV
+
+echo "Environment variables set:"
+cat .env.local
+
 # Remove package-lock.json to prevent platform-specific binary issues
 echo "Removing package-lock.json..."
 rm -f package-lock.json
@@ -39,12 +53,18 @@ rm -f package-lock.json
 echo "Installing dependencies..."
 npm install --no-package-lock
 
-# Generate Prisma client explicitly
+# Generate Prisma client explicitly with proper binary target
 echo "Generating Prisma client..."
-npx prisma generate
+export PRISMA_SCHEMA_ENGINE_BINARY_PLATFORM=linux-musl
+export PRISMA_QUERY_ENGINE_BINARY_PLATFORM=linux-musl
+npx prisma generate --schema=prisma/schema.prisma
 
-# Build the Next.js application
-echo "Building the Next.js application..."
-npm run build
+# Run our static export preparation script
+echo "Running static export preparation script..."
+node next-static-export.js
+
+# Build the Next.js application with all export flags set
+echo "Building the Next.js application with static export flags..."
+NEXT_DEBUG_BUILD=true STATIC_EXPORT=true DOCKER_BUILD=true IS_EXPORT=true NEXT_PHASE=phase-production-build npm run build
 
 echo "Custom build process completed successfully!"

@@ -36,10 +36,10 @@ export default function ElevenLabsWidget() {
   // Show a fallback if the widget fails to load
   if (hasError) {
     return (
-      <div className="p-3 bg-gray-800 rounded-md">
+      <div className="p-3 rounded-md">
         <div className="text-center">
-          <p className="text-sm text-gray-400 mb-1">AI Assistant</p>
-          <p className="text-xs text-gray-500">Temporarily unavailable</p>
+          <p className="text-sm text-white font-medium mb-1">AI Assistant</p>
+          <p className="text-xs text-gray-300">Temporarily unavailable</p>
         </div>
       </div>
     );
@@ -47,11 +47,11 @@ export default function ElevenLabsWidget() {
 
   // Direct embedding of widget for both development and production
   return (
-    <div className="relative p-1 bg-gray-800 rounded-md overflow-hidden" style={{ minHeight: "300px" }}>
+    <div className="relative p-1 overflow-hidden" style={{ minHeight: "300px" }}>
       <style jsx global>{`
         elevenlabs-convai {
           --background-color: #111827;
-          --text-color: #f3f4f6;
+          --text-color: #ffffff;
           --button-color: #2563eb;
           --button-text-color: #ffffff;
           --border-color: #374151;
@@ -65,6 +65,26 @@ export default function ElevenLabsWidget() {
           bottom: auto !important;
           width: 100% !important;
           min-height: 300px !important;
+          font-size: 16px !important;
+        }
+        
+        /* Improve text readability in widget */
+        elevenlabs-convai .el-text,
+        elevenlabs-convai input,
+        elevenlabs-convai button {
+          color: #ffffff !important;
+          font-size: 1rem !important;
+        }
+        
+        elevenlabs-convai .el-message {
+          color: #ffffff !important;
+          font-weight: 400 !important;
+          font-size: 1rem !important;
+          line-height: 1.5 !important;
+        }
+        
+        elevenlabs-convai input::placeholder {
+          color: rgba(255, 255, 255, 0.7) !important;
         }
       `}</style>
       
@@ -78,12 +98,12 @@ export default function ElevenLabsWidget() {
       />
       
       {!isLoaded && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-800 bg-opacity-80">
+        <div className="absolute inset-0 flex items-center justify-center bg-opacity-80">
           <div className="animate-pulse flex space-x-4">
             <div className="flex-1 space-y-4 py-1 items-center text-center">
               <div className="h-4 bg-gray-700 rounded mx-auto w-3/4"></div>
               <div className="h-4 bg-gray-700 rounded mx-auto w-1/2"></div>
-              <div className="text-sm text-gray-400 mt-2">Loading AI Assistant...</div>
+              <div className="text-base text-white font-medium mt-2">Loading AI Assistant...</div>
             </div>
           </div>
         </div>

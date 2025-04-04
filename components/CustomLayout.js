@@ -98,13 +98,6 @@ export default function CustomLayout({ children, title = 'Therapist\'s Friend' }
 
         {/* Main Content */}
         <main className="ml-64 pt-16 min-h-screen bg-gray-900">
-          {isDev && isClient && (
-            <div className="max-w-7xl mx-auto px-4 pt-4">
-              <div className="bg-blue-900 text-white px-4 py-2 rounded-md text-sm">
-                Development Mode: Using mock user data
-              </div>
-            </div>
-          )}
           {children}
         </main>
       </div>

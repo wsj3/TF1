@@ -8,22 +8,23 @@ declare global {
 
 export function middleware(request: NextRequest) {
   try {
-    // Skip auth checks entirely during static export/build or if environment variables indicate we're in build
-    if (
+    // Enhanced detection for static export/build environment
+    const isStaticBuild = 
       process.env.STATIC_EXPORT === 'true' || 
+      global.isStaticExport === true ||
       process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE === 'phase-production-build' ||
-      // Additional check specific to Docker build environments
-      !process.env.NEXT_RUNTIME ||
-      // For static generation
-      global.isStaticExport
-    ) {
-      return NextResponse.next();
-    }
+      // Detect static generation by checking for missing request features
+      !request.cookies || typeof request.cookies.get !== 'function' ||
+      // Always skip during Docker build
+      process.env.DOCKER_BUILD === 'true';
 
-    // Create a global flag to indicate static generation is happening
-    if (typeof global.isStaticExport === 'undefined' && 
-        (!request.cookies || typeof request.cookies.get !== 'function')) {
-      global.isStaticExport = true;
+    // Early return for all static builds/exports
+    if (isStaticBuild) {
+      // Set global flag for future middleware calls
+      if (typeof global.isStaticExport === 'undefined') {
+        global.isStaticExport = true;
+        console.log('Static export detected, bypassing authentication middleware');
+      }
       return NextResponse.next();
     }
 
@@ -43,11 +44,13 @@ export function middleware(request: NextRequest) {
       return NextResponse.next();
     }
 
-    // Safely check for auth token (check both possible cookie names)
+    // Safely check for auth token with improved error handling
     let authToken = null;
     try {
       if (request.cookies && typeof request.cookies.get === 'function') {
-        authToken = request.cookies.get('auth_token') || request.cookies.get('tf-auth-token');
+        const authCookie = request.cookies.get('auth_token');
+        const tfAuthCookie = request.cookies.get('tf-auth-token');
+        authToken = authCookie?.value || tfAuthCookie?.value;
       }
     } catch (e) {
       // If there's any error reading cookies, just continue without auth

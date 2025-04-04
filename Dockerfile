@@ -15,8 +15,11 @@ RUN npm install
 # Copy the rest of the application
 COPY . .
 
-# Create .env to set STATIC_EXPORT=true during build
+# Set environment variables for build
+ENV STATIC_EXPORT=true
+ENV DOCKER_BUILD=true
 RUN echo "STATIC_EXPORT=true" > .env.local
+RUN echo "DOCKER_BUILD=true" >> .env.local
 
 # Set binaryTargets explicitly for Prisma
 ENV PRISMA_SCHEMA_ENGINE_BINARY_PLATFORM=linux-musl
@@ -47,6 +50,10 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/.env.local ./.env.local
+
+# Set runtime environment variables
+ENV STATIC_EXPORT=true
+ENV DOCKER_BUILD=true
 
 # Expose the port the app will run on
 EXPOSE 3000

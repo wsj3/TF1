@@ -11,9 +11,10 @@ apt-get update && apt-get install -y openssl libssl-dev
 # Set Node options to increase memory limit if needed
 export NODE_OPTIONS="--max-old-space-size=4096"
 
-# Set STATIC_EXPORT flag for build process
+# Set flags for build process
 export STATIC_EXPORT=true
-echo "Setting STATIC_EXPORT=true for build..."
+export DOCKER_BUILD=true
+echo "Setting STATIC_EXPORT=true and DOCKER_BUILD=true for build..."
 
 # Create .npmrc file to ensure proper installation settings
 echo "Configuring npm..."
